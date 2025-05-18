@@ -47,7 +47,8 @@ const getNutrient = (nutriments: any, key: string): number | null => {
   let val = nutriments[key];
   if (val === undefined || val === null || val === '') return null;
   if (typeof val === 'string') {
-    const parsedVal = parseFloat(val.replace(',', '.')); // Handle comma as decimal separator
+    // Replace comma with period for European decimal format, then parse
+    const parsedVal = parseFloat(val.replace(',', '.'));
     val = isNaN(parsedVal) ? null : parsedVal;
   }
   return typeof val === 'number' && isFinite(val) ? val : null;
@@ -57,6 +58,7 @@ export async function searchFoodProducts(
   input: SearchFoodProductsInput
 ): Promise<SearchFoodProductsOutput> {
   const searchTerm = encodeURIComponent(input.foodName);
+  // API already requests a page_size of 20
   const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${searchTerm}&search_simple=1&action=process&json=1&page_size=20&sort_by=popularity_key`;
 
   try {
@@ -80,7 +82,14 @@ export async function searchFoodProducts(
     }
 
     const results: ProductSearchResultItem[] = [];
+    let itemsIterated = 0; // Counter for raw items iterated from data.products
+
     for (const p of data.products) {
+      if (itemsIterated >= 20) { // Strictly limit iteration to the first 20 raw products
+          break;
+      }
+      itemsIterated++;
+
       // Ensure p is a valid object and has necessary fields
       if (p && typeof p === 'object' && p.code && (p.product_name || p.product_name_en || p.generic_name) && p.nutriments && typeof p.nutriments === 'object') {
         const nutriments = p.nutriments;
@@ -121,25 +130,29 @@ export async function searchFoodProducts(
             sugar,
             protein,
             fiber,
-            sourceName: displayName,
+            sourceName: displayName, // Using the same display name as sourceName for simplicity
           },
         });
       }
-      if (results.length >= 20) break;
+      // The condition `if (results.length >= 20) break;` is now implicitly handled
+      // by `if (itemsIterated >= 20) break;` if all items are valid.
+      // If some items are invalid, `results` might be less than 20, which is fine.
     }
 
     if (results.length === 0) {
+        // This message is if products were returned by API, but none were processable by our criteria
         return { products: [], error: 'Found products, but none had sufficient data or a valid name that could be processed.' };
     }
 
     return { products: results };
 
   } catch (error: unknown) {
-    console.error('Full error in searchFoodProducts flow:', error); // Log the full error object
+    console.error('Full error in searchFoodProducts flow:', error); 
 
     if (error instanceof TypeError && error.message === 'fetch failed') {
       let causeMessage = "Network request to Open Food Facts API failed.";
-      if (error.cause instanceof Error) { // Common for Node.js fetch environment
+      // Check for specific error causes if available (Node.js often provides error.cause)
+      if (error.cause instanceof Error) { 
         causeMessage += ` This might be due to a network connectivity issue (e.g., ECONNREFUSED, ENOTFOUND, DNS error) from your current environment. Specific cause: ${error.cause.message}.`;
       } else if (error.cause) { // Other potential cause structures
         causeMessage += ` Specific cause: ${String(error.cause)}.`;
@@ -148,7 +161,6 @@ export async function searchFoodProducts(
       return { products: [], error: causeMessage };
     }
 
-    // Generic error handling for other types of errors
     let detail = 'An unexpected error occurred while processing food data.';
     if (error instanceof Error) {
       detail = error.message;
