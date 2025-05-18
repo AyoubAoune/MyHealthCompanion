@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 204 82% 94%; /* #E3F2FD - Light, desaturated blue */
+    --foreground: 210 25% 25%; /* Darker text for readability */
+
+    --card: 204 82% 98%; /* Slightly lighter than background for cards */
+    --card-foreground: 210 25% 25%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 25% 25%;
+
+    --primary: 207 88% 68%; /* #64B5F6 - Calm Blue */
+    --primary-foreground: 0 0% 100%; /* White text on primary blue */
+
+    --secondary: 204 75% 88%; /* A slightly more saturated light blue */
+    --secondary-foreground: 210 25% 25%;
+
+    --muted: 204 60% 90%; /* Lighter shade for muted elements */
+    --muted-foreground: 210 20% 45%; /* Softer text for muted */
+
+    --accent: 123 42% 75%; /* #A5D6A7 - Soft Green */
+    --accent-foreground: 120 30% 20%; /* Darker green text for accent */
+
+    --destructive: 0 72% 51%; /* Adjusted for better visibility */
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 207 65% 85%; /* Lighter blue for borders */
+    --input: 207 65% 90%; /* Lighter blue for input background */
+    --ring: 207 88% 68%; /* Primary color for focus rings */
+
+    --radius: 0.5rem;
+
+    /* Sidebar specific colors (can be kept or adjusted if sidebar is used) */
+    --sidebar-background: 204 70% 90%;
+    --sidebar-foreground: 210 25% 25%;
+    --sidebar-primary: 207 88% 68%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 123 42% 75%;
+    --sidebar-accent-foreground: 120 30% 20%;
+    --sidebar-border: 207 60% 80%;
+    --sidebar-ring: 207 88% 68%;
+
+    --chart-1: hsl(var(--primary));
+    --chart-2: hsl(var(--accent));
+    --chart-3: 197 37% 44%; 
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    /* Define dark theme variables if needed, for now keeping light theme focus */
+    --background: 210 25% 12%;
+    --foreground: 204 82% 94%;
+
+    --card: 210 25% 15%;
+    --card-foreground: 204 82% 94%;
+
+    --popover: 210 25% 10%;
+    --popover-foreground: 204 82% 94%;
+
+    --primary: 207 88% 68%;
+    --primary-foreground: 210 25% 10%;
+
+    --secondary: 210 25% 25%;
+    --secondary-foreground: 204 82% 94%;
+
+    --muted: 210 25% 20%;
+    --muted-foreground: 204 60% 70%;
+
+    --accent: 123 42% 75%;
+    --accent-foreground: 120 30% 15%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 210 25% 30%;
+    --input: 210 25% 22%;
+    --ring: 207 88% 68%;
+    
+    --chart-1: hsl(var(--primary));
+    --chart-2: hsl(var(--accent));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
