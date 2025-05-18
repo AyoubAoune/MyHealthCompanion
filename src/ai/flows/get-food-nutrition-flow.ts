@@ -57,11 +57,8 @@ const getNutrient = (nutriments: any, key: string): number | null => {
 export async function searchFoodProducts(
   input: SearchFoodProductsInput
 ): Promise<SearchFoodProductsOutput> {
-  // Construct a search term that targets the product_name field.
-  // The `replace(/"/g, '\\"')` is to escape any quotes within the foodName itself.
-  const fieldSpecificSearchTerm = `product_name:"${input.foodName.replace(/"/g, '\\"')}"`;
-  const encodedSearchTerm = encodeURIComponent(fieldSpecificSearchTerm);
-
+  const encodedSearchTerm = encodeURIComponent(input.foodName);
+  // General search, filtering will happen client-side (in this flow)
   const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=20&sort_by=popularity_key`;
 
   try {
@@ -81,65 +78,71 @@ export async function searchFoodProducts(
     const data = await response.json();
 
     if (!data.products || !Array.isArray(data.products) || data.products.length === 0) {
-      return { products: [], error: `No products found with "${input.foodName}" in their name.` };
+      return { products: [], error: `No products found for "${input.foodName}" from the API.` };
     }
 
     const results: ProductSearchResultItem[] = [];
-    let itemsIterated = 0; 
+    const lowerFoodNameQuery = input.foodName.toLowerCase();
 
     for (const p of data.products) {
-      if (itemsIterated >= 20) { 
-          break;
+      if (!(p && typeof p === 'object' && p.code && p.nutriments && typeof p.nutriments === 'object')) {
+        continue; // Skip malformed product entries
       }
-      itemsIterated++;
 
-      if (p && typeof p === 'object' && p.code && (p.product_name || p.product_name_en || p.generic_name) && p.nutriments && typeof p.nutriments === 'object') {
-        const nutriments = p.nutriments;
-
-        const calories = getNutrient(nutriments, 'energy-kcal_100g');
-        const fat = getNutrient(nutriments, 'fat_100g');
-        const saturatedFat = getNutrient(nutriments, 'saturated-fat_100g');
-        const transFat = getNutrient(nutriments, 'trans-fat_100g');
-        const monounsaturatedFat = getNutrient(nutriments, 'monounsaturated-fat_100g');
-        const polyunsaturatedFat = getNutrient(nutriments, 'polyunsaturated-fat_100g');
-        
-        let calculatedHealthyFats: number | null = null;
-        if (monounsaturatedFat !== null || polyunsaturatedFat !== null) {
-          calculatedHealthyFats = (monounsaturatedFat ?? 0) + (polyunsaturatedFat ?? 0);
-        }
-        
-        let calculatedUnhealthyFats: number | null = null;
-        if (saturatedFat !== null || transFat !== null) {
-          calculatedUnhealthyFats = (saturatedFat ?? 0) + (transFat ?? 0);
-        }
-
-        const carbs = getNutrient(nutriments, 'carbohydrates_100g');
-        const sugar = getNutrient(nutriments, 'sugars_100g');
-        const protein = getNutrient(nutriments, 'proteins_100g');
-        const fiber = getNutrient(nutriments, 'fiber_100g');
-        
-        const displayName = p.product_name || p.product_name_en || p.generic_name || "Unknown Product";
-
-        results.push({
-          id: p.code.toString(),
-          displayName: displayName,
-          nutritionData: {
-            calories,
-            fat,
-            healthyFats: calculatedHealthyFats,
-            unhealthyFats: calculatedUnhealthyFats,
-            carbs,
-            sugar,
-            protein,
-            fiber,
-            sourceName: displayName,
-          },
-        });
+      const originalProductName = p.product_name || p.product_name_en || p.generic_name || "";
+      
+      // Check if the product name contains the search query (case-insensitive)
+      if (!originalProductName || !originalProductName.toLowerCase().includes(lowerFoodNameQuery)) {
+        continue; // Skip if name doesn't match the query
       }
+      
+      // If name matches, proceed to extract nutrition
+      const nutriments = p.nutriments;
+
+      const calories = getNutrient(nutriments, 'energy-kcal_100g');
+      const fat = getNutrient(nutriments, 'fat_100g');
+      const saturatedFat = getNutrient(nutriments, 'saturated-fat_100g');
+      const transFat = getNutrient(nutriments, 'trans-fat_100g');
+      const monounsaturatedFat = getNutrient(nutriments, 'monounsaturated-fat_100g');
+      const polyunsaturatedFat = getNutrient(nutriments, 'polyunsaturated-fat_100g');
+      
+      let calculatedHealthyFats: number | null = null;
+      if (monounsaturatedFat !== null || polyunsaturatedFat !== null) {
+        calculatedHealthyFats = (monounsaturatedFat ?? 0) + (polyunsaturatedFat ?? 0);
+      }
+      
+      let calculatedUnhealthyFats: number | null = null;
+      if (saturatedFat !== null || transFat !== null) {
+        calculatedUnhealthyFats = (saturatedFat ?? 0) + (transFat ?? 0);
+      }
+
+      const carbs = getNutrient(nutriments, 'carbohydrates_100g');
+      const sugar = getNutrient(nutriments, 'sugars_100g');
+      const protein = getNutrient(nutriments, 'proteins_100g');
+      const fiber = getNutrient(nutriments, 'fiber_100g');
+      
+      const displayName = originalProductName || "Unknown Product"; // Use the original case for display
+
+      results.push({
+        id: p.code.toString(),
+        displayName: displayName,
+        nutritionData: {
+          calories,
+          fat,
+          healthyFats: calculatedHealthyFats,
+          unhealthyFats: calculatedUnhealthyFats,
+          carbs,
+          sugar,
+          protein,
+          fiber,
+          sourceName: displayName, // Use the original case for sourceName as well
+        },
+      });
     }
 
     if (results.length === 0) {
-        return { products: [], error: 'Found products, but none had sufficient data or a valid name that could be processed.' };
+        // This means products were returned by API, but none matched the name filter
+        return { products: [], error: `No products found where the name contains "${input.foodName}".` };
     }
 
     return { products: results };
@@ -170,4 +173,3 @@ export async function searchFoodProducts(
     return { products: [], error: `Flow Error: ${detail}` };
   }
 }
-
