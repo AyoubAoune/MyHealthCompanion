@@ -57,9 +57,12 @@ const getNutrient = (nutriments: any, key: string): number | null => {
 export async function searchFoodProducts(
   input: SearchFoodProductsInput
 ): Promise<SearchFoodProductsOutput> {
-  const searchTerm = encodeURIComponent(input.foodName);
-  // API already requests a page_size of 20
-  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${searchTerm}&search_simple=1&action=process&json=1&page_size=20&sort_by=popularity_key`;
+  // Construct a search term that targets the product_name field.
+  // The `replace(/"/g, '\\"')` is to escape any quotes within the foodName itself.
+  const fieldSpecificSearchTerm = `product_name:"${input.foodName.replace(/"/g, '\\"')}"`;
+  const encodedSearchTerm = encodeURIComponent(fieldSpecificSearchTerm);
+
+  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=20&sort_by=popularity_key`;
 
   try {
     const response = await fetch(url, {
@@ -78,19 +81,18 @@ export async function searchFoodProducts(
     const data = await response.json();
 
     if (!data.products || !Array.isArray(data.products) || data.products.length === 0) {
-      return { products: [], error: 'No products found for this search term.' };
+      return { products: [], error: `No products found with "${input.foodName}" in their name.` };
     }
 
     const results: ProductSearchResultItem[] = [];
-    let itemsIterated = 0; // Counter for raw items iterated from data.products
+    let itemsIterated = 0; 
 
     for (const p of data.products) {
-      if (itemsIterated >= 20) { // Strictly limit iteration to the first 20 raw products
+      if (itemsIterated >= 20) { 
           break;
       }
       itemsIterated++;
 
-      // Ensure p is a valid object and has necessary fields
       if (p && typeof p === 'object' && p.code && (p.product_name || p.product_name_en || p.generic_name) && p.nutriments && typeof p.nutriments === 'object') {
         const nutriments = p.nutriments;
 
@@ -130,17 +132,13 @@ export async function searchFoodProducts(
             sugar,
             protein,
             fiber,
-            sourceName: displayName, // Using the same display name as sourceName for simplicity
+            sourceName: displayName,
           },
         });
       }
-      // The condition `if (results.length >= 20) break;` is now implicitly handled
-      // by `if (itemsIterated >= 20) break;` if all items are valid.
-      // If some items are invalid, `results` might be less than 20, which is fine.
     }
 
     if (results.length === 0) {
-        // This message is if products were returned by API, but none were processable by our criteria
         return { products: [], error: 'Found products, but none had sufficient data or a valid name that could be processed.' };
     }
 
@@ -149,12 +147,11 @@ export async function searchFoodProducts(
   } catch (error: unknown) {
     console.error('Full error in searchFoodProducts flow:', error); 
 
-    if (error instanceof TypeError && error.message === 'fetch failed') {
+    if (error instanceof TypeError && (error.message === 'fetch failed' || (error.cause instanceof Error && error.cause.message.includes('ECONNREFUSED')))) {
       let causeMessage = "Network request to Open Food Facts API failed.";
-      // Check for specific error causes if available (Node.js often provides error.cause)
       if (error.cause instanceof Error) { 
-        causeMessage += ` This might be due to a network connectivity issue (e.g., ECONNREFUSED, ENOTFOUND, DNS error) from your current environment. Specific cause: ${error.cause.message}.`;
-      } else if (error.cause) { // Other potential cause structures
+        causeMessage += ` This might be due to a network connectivity issue (e.g., ${error.cause.message}) from your current environment.`;
+      } else if (error.cause) { 
         causeMessage += ` Specific cause: ${String(error.cause)}.`;
       }
       causeMessage += " If you are running in a simulator, virtual machine, or restricted network environment, please check its network access capabilities for external APIs like world.openfoodfacts.org.";
@@ -173,3 +170,4 @@ export async function searchFoodProducts(
     return { products: [], error: `Flow Error: ${detail}` };
   }
 }
+
