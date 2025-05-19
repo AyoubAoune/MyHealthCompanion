@@ -10,12 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Lightbulb, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "./AppContext";
+import { Button } from "@/components/ui/button"; // Added this import
 
 export function MealSuggestionCard({ timeOfDay }: { timeOfDay: string }) {
   const { userSettings } = useAppContext();
 
   const [preferences, setPreferences] = useState<Omit<MealSuggestionPreferences, 'timeOfDay'>>({
-    calorieLimit: 0, 
+    calorieLimit: 0,
     dietaryPreferences: "",
     avoidFoods: "",
   });
@@ -53,7 +54,7 @@ export function MealSuggestionCard({ timeOfDay }: { timeOfDay: string }) {
     const submitInput: SuggestMealsInput = {
       ...preferences,
       calorieLimit: Number.isNaN(preferences.calorieLimit) ? 0 : preferences.calorieLimit,
-      timeOfDay: timeOfDay, 
+      timeOfDay: timeOfDay,
     };
 
     try {
