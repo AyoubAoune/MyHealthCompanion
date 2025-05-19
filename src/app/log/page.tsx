@@ -24,8 +24,10 @@ export default function LogPage() {
             </div>
           </div>
         </header>
-        <Skeleton className="h-96 w-full max-w-md mx-auto rounded-lg mb-6" />
-        <Skeleton className="h-80 w-full max-w-md mx-auto rounded-lg" />
+        <div className="flex flex-col md:flex-row gap-8 max-w-5xl mx-auto">
+          <Skeleton className="h-96 w-full md:flex-1 rounded-lg mb-6 md:mb-0" />
+          <Skeleton className="h-80 w-full md:flex-1 rounded-lg" />
+        </div>
       </div>
     );
   }
@@ -42,10 +44,15 @@ export default function LogPage() {
           <p className="text-md md:text-lg text-muted-foreground">Keep track of your daily nutrition.</p>
         </div>
       </header>
-      <div className="max-w-lg mx-auto space-y-8">
-        <LogIntakeForm />
-        <Separator />
-        <MealLogSummaryCard />
+      <div className="max-w-5xl mx-auto">
+        <div className="flex flex-col md:flex-row md:gap-8 space-y-8 md:space-y-0">
+          <div className="md:flex-1 w-full">
+            <LogIntakeForm />
+          </div>
+          <div className="md:flex-1 w-full">
+            <MealLogSummaryCard />
+          </div>
+        </div>
       </div>
     </div>
   );
