@@ -5,6 +5,7 @@ import type { WeightLog } from "./types";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { CartesianGrid, Line, LineChart as RechartsLineChart, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
+import { parseDate } from "./date-utils"; // Import parseDate
 
 interface WeightTrendChartClientProps {
   weightLogs: WeightLog[];
@@ -18,16 +19,16 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientProps) {
-  if (weightLogs.length < 2) {
+  if (!weightLogs || weightLogs.length < 2) {
     return <p className="text-center text-muted-foreground py-8">Log at least two weight entries to see the trend.</p>;
   }
 
   const chartData = weightLogs
     .map(log => ({
-      date: log.date, // Keep as string for XAxis formatting
+      date: log.date, // Keep as string for data integrity, convert for operations
       weight: log.weight,
     }))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime()); // Use parseDate for sorting
 
   return (
     <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
@@ -47,7 +48,7 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          tickFormatter={(value: string) => format(new Date(value), "MMM d")}
+          tickFormatter={(value: string) => format(parseDate(value), "MMM d")} // Use parseDate for formatting
         />
         <YAxis
           tickLine={false}
