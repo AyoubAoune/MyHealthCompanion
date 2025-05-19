@@ -4,8 +4,8 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import useLocalStorage from '@/hooks/useLocalStorage';
-import type { UserSettings, DailyLog, WeightLog } from './types';
-import { DEFAULT_USER_SETTINGS } from './types';
+import type { UserSettings, DailyLog, WeightLog, LoggedEntry, MealType } from './types';
+import { DEFAULT_USER_SETTINGS, DEFAULT_DAILY_LOG_BASE } from './types';
 import { getCurrentDateFormatted } from './date-utils';
 
 interface AppContextType {
@@ -15,7 +15,7 @@ interface AppContextType {
   currentDayLog: DailyLog | null;
   isLoading: boolean;
   updateUserSettings: (newSettings: Partial<UserSettings>) => void;
-  logIntake: (intake: Omit<DailyLog, 'date'>) => void;
+  logIntake: (entryData: Omit<LoggedEntry, 'id'>) => void;
   logWeight: (weight: number) => void;
 }
 
@@ -39,46 +39,101 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!isLoading) {
       const todayStr = getCurrentDateFormatted();
       const foundLog = dailyLogs.find(log => log.date === todayStr);
-      const defaultLogBase: DailyLog = {
-        date: todayStr, calories: 0, protein: 0, fiber: 0,
-        fat: 0, healthyFats: 0, unhealthyFats: 0, carbs: 0, sugar: 0,
-      };
-      setCurrentDayLog(foundLog || defaultLogBase);
+      
+      let currentLogToSet: DailyLog;
+
+      if (foundLog) {
+        // Migration for old structure or ensure new structure is complete
+        if (!(foundLog as DailyLog).entries) { // Check if it's the old structure
+          const oldLog = foundLog as any; // Cast to access old fields
+          currentLogToSet = {
+            date: oldLog.date,
+            entries: [], // Old logs won't have individual entries
+            totalCalories: oldLog.calories || 0,
+            totalProtein: oldLog.protein || 0,
+            totalFiber: oldLog.fiber || 0,
+            totalFat: oldLog.fat || 0,
+            totalHealthyFats: oldLog.healthyFats || 0,
+            totalUnhealthyFats: oldLog.unhealthyFats || 0,
+            totalCarbs: oldLog.carbs || 0,
+            totalSugar: oldLog.sugar || 0,
+          };
+        } else {
+          // It's the new structure, ensure all total fields are present
+          currentLogToSet = {
+            ...DEFAULT_DAILY_LOG_BASE, // Provide defaults for any missing total fields
+            ...foundLog, // Spread the found log
+            date: foundLog.date, // Ensure date is explicitly set
+            entries: foundLog.entries || [], // Ensure entries is an array
+          };
+        }
+      } else {
+        // New day, new log structure
+        currentLogToSet = {
+          date: todayStr,
+          ...DEFAULT_DAILY_LOG_BASE,
+        };
+      }
+      setCurrentDayLog(currentLogToSet);
     }
   }, [dailyLogs, isLoading]);
+
 
   const updateUserSettings = useCallback((newSettings: Partial<UserSettings>) => {
     setUserSettings(prev => ({ ...prev, ...newSettings }));
   }, [setUserSettings]);
 
-  const logIntake = useCallback((newIntake: Omit<DailyLog, 'date'>) => {
+  const logIntake = useCallback((entryData: Omit<LoggedEntry, 'id'>) => {
     const todayStr = getCurrentDateFormatted();
     setDailyLogs(prevLogs => {
       const existingLogIndex = prevLogs.findIndex(log => log.date === todayStr);
+      
+      let updatedLog: DailyLog;
+
+      if (existingLogIndex > -1) {
+        updatedLog = { ...prevLogs[existingLogIndex] };
+        if (!updatedLog.entries) { // Migration for safety, though useEffect should handle it
+            updatedLog.entries = [];
+            updatedLog.totalCalories = (updatedLog as any).calories || 0;
+            // ... copy other old total fields if necessary
+        }
+      } else {
+        updatedLog = { date: todayStr, ...DEFAULT_DAILY_LOG_BASE };
+      }
+
+      const newEntry: LoggedEntry = {
+        ...entryData,
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 15), // More unique ID
+      };
+      updatedLog.entries = [...updatedLog.entries, newEntry];
+
+      // Recalculate totals
+      updatedLog.totalCalories = 0;
+      updatedLog.totalProtein = 0;
+      updatedLog.totalFiber = 0;
+      updatedLog.totalFat = 0;
+      updatedLog.totalHealthyFats = 0;
+      updatedLog.totalUnhealthyFats = 0;
+      updatedLog.totalCarbs = 0;
+      updatedLog.totalSugar = 0;
+
+      for (const entry of updatedLog.entries) {
+        updatedLog.totalCalories += entry.calories || 0;
+        updatedLog.totalProtein += entry.protein || 0;
+        updatedLog.totalFiber += entry.fiber || 0;
+        updatedLog.totalFat += entry.fat || 0;
+        updatedLog.totalHealthyFats += entry.healthyFats || 0;
+        updatedLog.totalUnhealthyFats += entry.unhealthyFats || 0;
+        updatedLog.totalCarbs += entry.carbs || 0;
+        updatedLog.totalSugar += entry.sugar || 0;
+      }
+      
       if (existingLogIndex > -1) {
         const updatedLogs = [...prevLogs];
-        const existingLog = updatedLogs[existingLogIndex];
-        
-        updatedLogs[existingLogIndex] = {
-          ...existingLog,
-          foodItem: newIntake.foodItem ? (existingLog.foodItem ? `${existingLog.foodItem}, ${newIntake.foodItem}` : newIntake.foodItem) : existingLog.foodItem,
-          calories: (existingLog.calories || 0) + (newIntake.calories || 0),
-          protein: (existingLog.protein || 0) + (newIntake.protein || 0),
-          fiber: (existingLog.fiber || 0) + (newIntake.fiber || 0),
-          fat: (existingLog.fat || 0) + (newIntake.fat || 0),
-          healthyFats: (existingLog.healthyFats || 0) + (newIntake.healthyFats || 0),
-          unhealthyFats: (existingLog.unhealthyFats || 0) + (newIntake.unhealthyFats || 0),
-          carbs: (existingLog.carbs || 0) + (newIntake.carbs || 0),
-          sugar: (existingLog.sugar || 0) + (newIntake.sugar || 0),
-        };
+        updatedLogs[existingLogIndex] = updatedLog;
         return updatedLogs;
       }
-      // Ensure all fields are present even for new logs
-      const defaultLogBase: DailyLog = {
-        date: todayStr, calories: 0, protein: 0, fiber: 0,
-        fat: 0, healthyFats: 0, unhealthyFats: 0, carbs: 0, sugar: 0,
-      };
-      return [...prevLogs, { ...defaultLogBase, ...newIntake, date: todayStr }];
+      return [...prevLogs, updatedLog];
     });
   }, [setDailyLogs]);
 

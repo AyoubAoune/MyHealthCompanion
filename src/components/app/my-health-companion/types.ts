@@ -8,23 +8,47 @@ export interface UserSettings {
   remindersEnabled: boolean;
 }
 
-export interface DailyLog {
-  date: string; // YYYY-MM-DD
-  foodItem?: string; // Name of the food logged
+export const MEAL_TYPES = [
+  "Breakfast", 
+  "Morning Snack", 
+  "Lunch", 
+  "Afternoon Snack", 
+  "Dinner", 
+  "Late Snack"
+] as const;
+
+export type MealType = typeof MEAL_TYPES[number];
+
+export interface LoggedEntry { // Represents one thing the user logged
+  id: string; // unique ID for this specific logged entry
+  foodItemName: string;
+  mealType: MealType;
+  quantity: number; // in grams, or serving size description if not by weight
   calories: number;
   protein: number;
   fiber: number;
   fat?: number;
-  healthyFats?: number; // Monounsaturated + Polyunsaturated
-  unhealthyFats?: number; // Saturated + Trans
+  healthyFats?: number;
+  unhealthyFats?: number;
   carbs?: number;
   sugar?: number;
 }
 
-export interface WeightLog {
+export interface DailyLog {
   date: string; // YYYY-MM-DD
-  weight: number; // in kg or preferred unit
+  entries: LoggedEntry[]; // All individual food entries for the day
+
+  // Aggregated totals for the day
+  totalCalories: number;
+  totalProtein: number;
+  totalFiber: number;
+  totalFat: number; // Changed to non-optional, default 0
+  totalHealthyFats: number; // Changed to non-optional, default 0
+  totalUnhealthyFats: number; // Changed to non-optional, default 0
+  totalCarbs: number; // Changed to non-optional, default 0
+  totalSugar: number; // Changed to non-optional, default 0
 }
+
 
 export interface MealSuggestionPreferences {
   calorieLimit: number;
@@ -40,6 +64,19 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   reminderTime: "09:00",
   remindersEnabled: false,
 };
+
+export const DEFAULT_DAILY_LOG_BASE: Omit<DailyLog, 'date'> = {
+  entries: [],
+  totalCalories: 0,
+  totalProtein: 0,
+  totalFiber: 0,
+  totalFat: 0,
+  totalHealthyFats: 0,
+  totalUnhealthyFats: 0,
+  totalCarbs: 0,
+  totalSugar: 0,
+};
+
 
 // Represents the structure of nutritional data fetched from the API for 100g
 export interface BaseNutritionData {

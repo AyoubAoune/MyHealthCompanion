@@ -9,11 +9,17 @@ import { useAppContext } from "./AppContext";
 
 export function IntakeProgressCard() {
   const { currentDayLog, userSettings } = useAppContext();
-  const intake = currentDayLog || { calories: 0, protein: 0, fiber: 0, date: '' };
+  
+  // Use default values if currentDayLog is null or missing totals
+  const intake = {
+    totalCalories: currentDayLog?.totalCalories ?? 0,
+    totalProtein: currentDayLog?.totalProtein ?? 0,
+    totalFiber: currentDayLog?.totalFiber ?? 0,
+  };
 
-  const calorieProgress = userSettings.dailyCalorieTarget > 0 ? (intake.calories / userSettings.dailyCalorieTarget) * 100 : 0;
-  const proteinProgress = userSettings.dailyProteinTarget > 0 ? (intake.protein / userSettings.dailyProteinTarget) * 100 : 0;
-  const fiberProgress = userSettings.dailyFiberTarget > 0 ? (intake.fiber / userSettings.dailyFiberTarget) * 100 : 0;
+  const calorieProgress = userSettings.dailyCalorieTarget > 0 ? (intake.totalCalories / userSettings.dailyCalorieTarget) * 100 : 0;
+  const proteinProgress = userSettings.dailyProteinTarget > 0 ? (intake.totalProtein / userSettings.dailyProteinTarget) * 100 : 0;
+  const fiberProgress = userSettings.dailyFiberTarget > 0 ? (intake.totalFiber / userSettings.dailyFiberTarget) * 100 : 0;
 
   return (
     <Card className="shadow-lg">
@@ -25,7 +31,7 @@ export function IntakeProgressCard() {
         <ProgressItem
           icon={Flame}
           label="Calories"
-          consumed={intake.calories}
+          consumed={intake.totalCalories}
           target={userSettings.dailyCalorieTarget}
           progressValue={calorieProgress}
           unit="kcal"
@@ -33,7 +39,7 @@ export function IntakeProgressCard() {
         <ProgressItem
           icon={Beef}
           label="Protein"
-          consumed={intake.protein}
+          consumed={intake.totalProtein}
           target={userSettings.dailyProteinTarget}
           progressValue={proteinProgress}
           unit="g"
@@ -41,7 +47,7 @@ export function IntakeProgressCard() {
         <ProgressItem
           icon={Leaf}
           label="Fiber"
-          consumed={intake.fiber}
+          consumed={intake.totalFiber}
           target={userSettings.dailyFiberTarget}
           progressValue={fiberProgress}
           unit="g"

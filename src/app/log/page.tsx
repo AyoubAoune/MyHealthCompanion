@@ -2,9 +2,12 @@
 "use client";
 
 import { LogIntakeForm } from "@/components/app/my-health-companion/LogIntakeForm";
+import { MealLogSummaryCard } from "@/components/app/my-health-companion/MealLogSummaryCard";
 import { useAppContext } from "@/components/app/my-health-companion/AppContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+
 
 export default function LogPage() {
   const { userSettings, isLoading } = useAppContext();
@@ -21,7 +24,8 @@ export default function LogPage() {
             </div>
           </div>
         </header>
-        <Skeleton className="h-96 w-full max-w-md mx-auto rounded-lg" />
+        <Skeleton className="h-96 w-full max-w-md mx-auto rounded-lg mb-6" />
+        <Skeleton className="h-80 w-full max-w-md mx-auto rounded-lg" />
       </div>
     );
   }
@@ -38,8 +42,10 @@ export default function LogPage() {
           <p className="text-md md:text-lg text-muted-foreground">Keep track of your daily nutrition.</p>
         </div>
       </header>
-      <div className="max-w-md mx-auto">
+      <div className="max-w-lg mx-auto space-y-8">
         <LogIntakeForm />
+        <Separator />
+        <MealLogSummaryCard />
       </div>
     </div>
   );

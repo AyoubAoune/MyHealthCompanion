@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Search, Loader2, Info, ListChecks, Utensils } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PlusCircle, Search, Loader2, Info, ListChecks, Utensils, Soup } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "./AppContext";
 import { searchFoodProducts } from "@/ai/flows/get-food-nutrition-flow";
-import type { DailyLog, BaseNutritionData, ProductSearchResultItem } from "./types";
+import type { LoggedEntry, BaseNutritionData, ProductSearchResultItem, MealType } from "./types";
+import { MEAL_TYPES } from "./types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -20,6 +22,7 @@ export function LogIntakeForm() {
 
   const [foodNameQuery, setFoodNameQuery] = useState("");
   const [quantity, setQuantity] = useState("100"); // Quantity in grams
+  const [selectedMealType, setSelectedMealType] = useState<MealType>(MEAL_TYPES[0]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<ProductSearchResultItem[] | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProductSearchResultItem | null>(null);
@@ -42,12 +45,12 @@ export function LogIntakeForm() {
       } else if (result.products && result.products.length > 0) {
         setSearchResults(result.products);
       } else {
-        setApiError("No products found for your search term.");
+        setApiError("No products found for your search term."); // More generic "No products found"
         toast({ title: "No Results", description: "No products found for your search term.", variant: "default" });
       }
     } catch (error) {
       console.error("Error calling searchFoodProducts:", error);
-      const errorMessage = "An error occurred while searching for food data.";
+      const errorMessage = error instanceof Error ? error.message : "An error occurred while searching for food data.";
       setApiError(errorMessage);
       toast({ title: "API Error", description: errorMessage, variant: "destructive" });
     } finally {
@@ -65,6 +68,10 @@ export function LogIntakeForm() {
       toast({ title: "No Product Selected", description: "Please select a product from the search results to log.", variant: "destructive" });
       return;
     }
+    if (!selectedMealType) {
+      toast({ title: "Meal Type Required", description: "Please select a meal type.", variant: "destructive" });
+      return;
+    }
 
     const numQuantity = parseFloat(quantity);
     if (isNaN(numQuantity) || numQuantity <= 0) {
@@ -73,25 +80,27 @@ export function LogIntakeForm() {
     }
 
     const scaleFactor = numQuantity / 100; // API data is per 100g
-    const nutritionToLog = selectedProduct.nutritionData;
+    const nutritionData = selectedProduct.nutritionData;
 
-    const intakeToLog: Omit<DailyLog, 'date'> = {
-      foodItem: selectedProduct.displayName,
-      calories: (nutritionToLog.calories ?? 0) * scaleFactor,
-      protein: (nutritionToLog.protein ?? 0) * scaleFactor,
-      fiber: (nutritionToLog.fiber ?? 0) * scaleFactor,
-      fat: (nutritionToLog.fat ?? 0) * scaleFactor,
-      healthyFats: (nutritionToLog.healthyFats ?? 0) * scaleFactor,
-      unhealthyFats: (nutritionToLog.unhealthyFats ?? 0) * scaleFactor,
-      carbs: (nutritionToLog.carbs ?? 0) * scaleFactor,
-      sugar: (nutritionToLog.sugar ?? 0) * scaleFactor,
+    const entryToLog: Omit<LoggedEntry, 'id'> = {
+      foodItemName: selectedProduct.displayName,
+      mealType: selectedMealType,
+      quantity: numQuantity,
+      calories: (nutritionData.calories ?? 0) * scaleFactor,
+      protein: (nutritionData.protein ?? 0) * scaleFactor,
+      fiber: (nutritionData.fiber ?? 0) * scaleFactor,
+      fat: (nutritionData.fat ?? 0) * scaleFactor,
+      healthyFats: (nutritionData.healthyFats ?? 0) * scaleFactor,
+      unhealthyFats: (nutritionData.unhealthyFats ?? 0) * scaleFactor,
+      carbs: (nutritionData.carbs ?? 0) * scaleFactor,
+      sugar: (nutritionData.sugar ?? 0) * scaleFactor,
     };
 
-    logIntake(intakeToLog);
+    logIntake(entryToLog);
 
     toast({
       title: "Food Logged!",
-      description: `${intakeToLog.foodItem} (${numQuantity}g) has been added to your daily log.`,
+      description: `${entryToLog.foodItemName} (${numQuantity}g) for ${selectedMealType} has been added.`,
       variant: "default",
       className: "bg-accent text-accent-foreground",
     });
@@ -99,6 +108,7 @@ export function LogIntakeForm() {
     // Reset form fields
     setFoodNameQuery("");
     setQuantity("100");
+    setSelectedMealType(MEAL_TYPES[0]);
     setSearchResults(null);
     setSelectedProduct(null);
     setApiError(null);
@@ -116,7 +126,7 @@ export function LogIntakeForm() {
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="text-xl">Log Your Food</CardTitle>
-        <CardDescription>Search for a food item, select from the list, then log its nutritional information.</CardDescription>
+        <CardDescription>Search, select, specify meal type and quantity, then log nutritional information.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {!selectedProduct && (
@@ -139,7 +149,7 @@ export function LogIntakeForm() {
           </>
         )}
 
-        {apiError && !searchResults && (
+        {apiError && !searchResults && !selectedProduct && (
             <Alert variant="destructive" className="mt-4">
                 <Info className="h-4 w-4" />
                 <AlertTitle>Search Error</AlertTitle>
@@ -170,7 +180,20 @@ export function LogIntakeForm() {
         {selectedProduct && (
           <>
             <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity (g) for <span className="font-semibold text-primary">{selectedProduct.displayName}</span></Label>
+              <Label htmlFor="meal-type-select">Meal Type for <span className="font-semibold text-primary">{selectedProduct.displayName}</span></Label>
+              <Select value={selectedMealType} onValueChange={(value: MealType) => setSelectedMealType(value)}>
+                <SelectTrigger id="meal-type-select">
+                  <SelectValue placeholder="Select meal type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MEAL_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity (g)</Label>
               <Input
                 id="quantity"
                 type="number"
@@ -193,8 +216,8 @@ export function LogIntakeForm() {
               <NutrientDisplay label="Carbohydrates" value={displayValue(selectedProduct.nutritionData.carbs, currentScaleFactor, "g")} />
               <NutrientDisplay label="  Sugars" value={displayValue(selectedProduct.nutritionData.sugar, currentScaleFactor, "g")} />
               <NutrientDisplay label="Fiber" value={displayValue(selectedProduct.nutritionData.fiber, currentScaleFactor, "g")} />
-               <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => {setSelectedProduct(null); setApiError(null); /* Keep foodNameQuery if user wants to refine search, or clear it: setFoodNameQuery(""); */ }}>
-                Search for another item or change quantity
+               <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => {setSelectedProduct(null); setApiError(null); }}>
+                Search for another item or change selection
               </Button>
             </div>
           </>
@@ -203,7 +226,7 @@ export function LogIntakeForm() {
       <CardFooter>
         <Button
           onClick={handleLogFoodItem}
-          disabled={isSearching || !selectedProduct || parseFloat(quantity) <= 0}
+          disabled={isSearching || !selectedProduct || parseFloat(quantity) <= 0 || !selectedMealType}
           className="w-full"
         >
           <PlusCircle className="mr-2 h-5 w-5" /> Add to Today's Log

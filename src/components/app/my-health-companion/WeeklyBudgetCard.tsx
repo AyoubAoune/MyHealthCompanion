@@ -8,6 +8,7 @@ import { CalendarDays } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAppContext } from "./AppContext";
 import { getWeekRange, parseDate, getCurrentDateFormatted } from "./date-utils";
+import type { DailyLog } from "./types"; // Import DailyLog for type safety
 
 
 export function WeeklyBudgetCard() {
@@ -16,7 +17,7 @@ export function WeeklyBudgetCard() {
   const [weeklyBudget, setWeeklyBudget] = useState(0);
 
   useEffect(() => {
-    const today = parseDate(getCurrentDateFormatted()); // Ensure today is based on formatted string for consistency
+    const today = parseDate(getCurrentDateFormatted()); 
     const { start, end } = getWeekRange(today);
     
     const currentWeekLogs = dailyLogs.filter(log => {
@@ -24,7 +25,8 @@ export function WeeklyBudgetCard() {
       return isWithinInterval(logDate, { start, end });
     });
 
-    const consumed = currentWeekLogs.reduce((sum, log) => sum + log.calories, 0);
+    // Use totalCalories from the new DailyLog structure
+    const consumed = currentWeekLogs.reduce((sum, log: DailyLog) => sum + log.totalCalories, 0);
     setWeeklyCaloriesConsumed(consumed);
     setWeeklyBudget(userSettings.dailyCalorieTarget * 7);
 

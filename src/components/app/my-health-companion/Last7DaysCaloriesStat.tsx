@@ -6,10 +6,11 @@ import { useAppContext } from "./AppContext";
 import { StatCard } from "./StatCard"; 
 import { getLastNDaysFormatted } from "./date-utils";
 import { BarChart } from "lucide-react";
+import type { DailyLog } from "./types"; // Import DailyLog for type safety
 
 export function Last7DaysCaloriesStat() {
   const { dailyLogs, userSettings } = useAppContext();
-  const [totalCalories, setTotalCalories] = useState(0);
+  const [totalCaloriesLast7Days, setTotalCaloriesLast7Days] = useState(0);
   const [averageCalories, setAverageCalories] = useState(0);
   const [daysWithLogs, setDaysWithLogs] = useState(0);
 
@@ -19,16 +20,17 @@ export function Last7DaysCaloriesStat() {
     let countDaysWithLogs = 0;
 
     last7Days.forEach(dateStr => {
-      const log = dailyLogs.find(dlog => dlog.date === dateStr);
+      const log: DailyLog | undefined = dailyLogs.find(dlog => dlog.date === dateStr);
       if (log) {
-        sumCalories += log.calories;
-        if (log.calories > 0) { // Count day only if calories were logged
+        // Use totalCalories from the new DailyLog structure
+        sumCalories += log.totalCalories; 
+        if (log.totalCalories > 0) { // Count day only if calories were logged
             countDaysWithLogs++;
         }
       }
     });
 
-    setTotalCalories(sumCalories);
+    setTotalCaloriesLast7Days(sumCalories);
     setDaysWithLogs(countDaysWithLogs);
     setAverageCalories(countDaysWithLogs > 0 ? Math.round(sumCalories / countDaysWithLogs) : 0);
 
@@ -46,7 +48,7 @@ export function Last7DaysCaloriesStat() {
       variant="accent"
     >
       <div className="text-sm text-muted-foreground mt-1">
-        <p>Total Consumed: <span className="font-semibold text-accent-foreground">{totalCalories.toLocaleString()} kcal</span></p>
+        <p>Total Consumed: <span className="font-semibold text-accent-foreground">{totalCaloriesLast7Days.toLocaleString()} kcal</span></p>
         <p>Average Daily: <span className="font-semibold text-accent-foreground">{averageCalories.toLocaleString()} kcal</span> (over {daysWithLogs} days with logs)</p>
         {daysWithLogs > 0 && userSettings.dailyCalorieTarget > 0 && (
           <p>
