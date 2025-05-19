@@ -7,11 +7,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Search, Loader2, Info, ListChecks, Utensils, Soup } from "lucide-react";
+import { PlusCircle, Search, Loader2, Info, ListChecks, Utensils } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "./AppContext";
-import { searchFoodProducts } from "@/ai/flows/get-food-nutrition-flow";
-import type { LoggedEntry, BaseNutritionData, ProductSearchResultItem, MealType } from "./types";
+import { searchFoodProducts, type SearchFoodProductsOutput } from "@/ai/flows/get-food-nutrition-flow";
+import type { LoggedEntry, ProductSearchResultItem, MealType } from "./types";
 import { MEAL_TYPES } from "./types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,15 +38,17 @@ export function LogIntakeForm() {
     setSelectedProduct(null);
     setApiError(null);
     try {
-      const result = await searchFoodProducts({ foodName: foodNameQuery });
+      const result: SearchFoodProductsOutput = await searchFoodProducts({ foodName: foodNameQuery });
       if (result.error) {
         setApiError(result.error);
         toast({ title: "Search Failed", description: result.error, variant: "destructive" });
       } else if (result.products && result.products.length > 0) {
         setSearchResults(result.products);
       } else {
-        setApiError("No products found for your search term."); // More generic "No products found"
-        toast({ title: "No Results", description: "No products found for your search term.", variant: "default" });
+        // Use the error from the flow if provided, otherwise a generic message
+        const message = result.error || `No products found where the name contains "${foodNameQuery}".`;
+        setApiError(message);
+        toast({ title: "No Results", description: message, variant: "default" });
       }
     } catch (error) {
       console.error("Error calling searchFoodProducts:", error);
@@ -180,7 +182,19 @@ export function LogIntakeForm() {
         {selectedProduct && (
           <>
             <div className="space-y-2">
-              <Label htmlFor="meal-type-select">Meal Type for <span className="font-semibold text-primary">{selectedProduct.displayName}</span></Label>
+              <Label htmlFor="quantity">Quantity (g) for <span className="font-semibold text-primary">{selectedProduct.displayName}</span></Label>
+              <Input
+                id="quantity"
+                type="number"
+                placeholder="e.g., 100"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                min="1"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="meal-type-select">Meal Type</Label>
               <Select value={selectedMealType} onValueChange={(value: MealType) => setSelectedMealType(value)}>
                 <SelectTrigger id="meal-type-select">
                   <SelectValue placeholder="Select meal type" />
@@ -192,17 +206,7 @@ export function LogIntakeForm() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity (g)</Label>
-              <Input
-                id="quantity"
-                type="number"
-                placeholder="e.g., 100"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                min="1"
-              />
-            </div>
+
             <div className="mt-6 p-4 border rounded-md bg-secondary/30 space-y-2">
               <h4 className="font-semibold text-lg mb-2 flex items-center">
                 <Utensils className="mr-2 h-5 w-5 text-primary"/>
@@ -216,7 +220,7 @@ export function LogIntakeForm() {
               <NutrientDisplay label="Carbohydrates" value={displayValue(selectedProduct.nutritionData.carbs, currentScaleFactor, "g")} />
               <NutrientDisplay label="  Sugars" value={displayValue(selectedProduct.nutritionData.sugar, currentScaleFactor, "g")} />
               <NutrientDisplay label="Fiber" value={displayValue(selectedProduct.nutritionData.fiber, currentScaleFactor, "g")} />
-               <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => {setSelectedProduct(null); setApiError(null); }}>
+               <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80" onClick={() => {setSelectedProduct(null); setApiError(null); setFoodNameQuery(""); }}>
                 Search for another item or change selection
               </Button>
             </div>
