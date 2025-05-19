@@ -2,9 +2,11 @@
 "use client";
 
 import { MealPreferencesAndSuggestions } from "@/components/app/my-health-companion/MealPreferencesAndSuggestions";
+import { IngredientMealSuggester } from "@/components/app/my-health-companion/IngredientMealSuggester";
 import { useAppContext } from "@/components/app/my-health-companion/AppContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator"; // Added Separator import
 
 export default function IdeasPage() {
   const { userSettings, isLoading: appContextIsLoading } = useAppContext();
@@ -21,7 +23,8 @@ export default function IdeasPage() {
             </div>
           </div>
         </header>
-        <Skeleton className="h-96 w-full max-w-2xl mx-auto rounded-lg" />
+        <Skeleton className="h-96 w-full max-w-2xl mx-auto rounded-lg mb-6" />
+        <Skeleton className="h-80 w-full max-w-2xl mx-auto rounded-lg" />
       </div>
     );
   }
@@ -38,8 +41,15 @@ export default function IdeasPage() {
           <p className="text-md md:text-lg text-muted-foreground">Discover AI-powered suggestions tailored to your needs.</p>
         </div>
       </header>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto space-y-8">
         <MealPreferencesAndSuggestions />
+        
+        <Separator className="my-8" />
+
+        <div>
+            <h2 className="text-xl md:text-2xl font-semibold text-primary mb-4">Get Ideas from Your Ingredients</h2>
+            <IngredientMealSuggester />
+        </div>
       </div>
     </div>
   );
