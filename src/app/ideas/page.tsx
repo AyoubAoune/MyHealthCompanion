@@ -6,7 +6,6 @@ import { IngredientMealSuggester } from "@/components/app/my-health-companion/In
 import { useAppContext } from "@/components/app/my-health-companion/AppContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator"; // Added Separator import
 
 export default function IdeasPage() {
   const { userSettings, isLoading: appContextIsLoading } = useAppContext();
@@ -23,8 +22,11 @@ export default function IdeasPage() {
             </div>
           </div>
         </header>
-        <Skeleton className="h-96 w-full max-w-2xl mx-auto rounded-lg mb-6" />
-        <Skeleton className="h-80 w-full max-w-2xl mx-auto rounded-lg" />
+        {/* Skeletons for side-by-side layout */}
+        <div className="flex flex-col md:flex-row gap-8">
+            <Skeleton className="h-96 w-full md:flex-1 rounded-lg mb-6 md:mb-0" />
+            <Skeleton className="h-80 w-full md:flex-1 rounded-lg" />
+        </div>
       </div>
     );
   }
@@ -41,14 +43,20 @@ export default function IdeasPage() {
           <p className="text-md md:text-lg text-muted-foreground">Discover AI-powered suggestions tailored to your needs.</p>
         </div>
       </header>
-      <div className="max-w-2xl mx-auto space-y-8">
-        <MealPreferencesAndSuggestions />
-        
-        <Separator className="my-8" />
-
-        <div>
+      
+      {/* Container for side-by-side layout on medium screens and up */}
+      <div className="max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Left Card: Meal Preferences */}
+          <div className="md:flex-1 w-full">
+            <MealPreferencesAndSuggestions />
+          </div>
+          
+          {/* Right Card: Ingredient Suggester */}
+          <div className="md:flex-1 w-full">
             <h2 className="text-xl md:text-2xl font-semibold text-primary mb-4">Get Ideas from Your Ingredients</h2>
             <IngredientMealSuggester />
+          </div>
         </div>
       </div>
     </div>
