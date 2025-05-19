@@ -41,20 +41,16 @@ export function LogIntakeForm() {
       const result: SearchFoodProductsOutput = await searchFoodProducts({ foodName: foodNameQuery });
       if (result.error) {
         setApiError(result.error);
-        toast({ title: "Search Failed", description: result.error, variant: "destructive" });
+        // No toast here, error will be shown in Alert
       } else if (result.products && result.products.length > 0) {
         setSearchResults(result.products);
       } else {
-        // Use the error from the flow if provided, otherwise a generic message
-        const message = result.error || `No products found where the name contains "${foodNameQuery}".`;
-        setApiError(message);
-        toast({ title: "No Results", description: message, variant: "default" });
+        setApiError(`No products found where the name contains "${foodNameQuery}".`);
       }
     } catch (error) {
       console.error("Error calling searchFoodProducts:", error);
       const errorMessage = error instanceof Error ? error.message : "An error occurred while searching for food data.";
       setApiError(errorMessage);
-      toast({ title: "API Error", description: errorMessage, variant: "destructive" });
     } finally {
       setIsSearching(false);
     }
@@ -63,6 +59,7 @@ export function LogIntakeForm() {
   const handleSelectProduct = (product: ProductSearchResultItem) => {
     setSelectedProduct(product);
     setSearchResults(null); // Hide search results after selection
+    setApiError(null); // Clear any previous API errors
   };
 
   const handleLogFoodItem = () => {
@@ -131,55 +128,7 @@ export function LogIntakeForm() {
         <CardDescription>Search, select, specify meal type and quantity, then log nutritional information.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!selectedProduct && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="food-name-query">Food Item Search</Label>
-              <Input
-                id="food-name-query"
-                type="text"
-                placeholder="e.g., Apple, Chicken Breast"
-                value={foodNameQuery}
-                onChange={(e) => setFoodNameQuery(e.target.value)}
-                disabled={isSearching}
-              />
-            </div>
-             <Button onClick={handleSearchFood} disabled={isSearching || !foodNameQuery.trim()} className="w-full">
-              {isSearching ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Search className="mr-2 h-5 w-5" />}
-              Search Food
-            </Button>
-          </>
-        )}
-
-        {apiError && !searchResults && !selectedProduct && (
-            <Alert variant="destructive" className="mt-4">
-                <Info className="h-4 w-4" />
-                <AlertTitle>Search Error</AlertTitle>
-                <AlertDescription>{apiError}</AlertDescription>
-            </Alert>
-        )}
-
-        {searchResults && searchResults.length > 0 && (
-          <div className="mt-4 space-y-2">
-            <h4 className="font-semibold text-md flex items-center"><ListChecks className="mr-2 h-5 w-5 text-primary"/> Select a food item:</h4>
-            <ScrollArea className="h-60 w-full rounded-md border p-2 bg-muted/30">
-              <div className="space-y-1">
-                {searchResults.map((item) => (
-                  <Button
-                    key={item.id}
-                    variant="ghost"
-                    className="w-full justify-start text-left h-auto py-2"
-                    onClick={() => handleSelectProduct(item)}
-                  >
-                    {item.displayName}
-                  </Button>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
-
-        {selectedProduct && (
+        {selectedProduct ? (
           <>
             <div className="space-y-2">
               <Label htmlFor="quantity">Quantity (g) for <span className="font-semibold text-primary">{selectedProduct.displayName}</span></Label>
@@ -220,10 +169,55 @@ export function LogIntakeForm() {
               <NutrientDisplay label="Carbohydrates" value={displayValue(selectedProduct.nutritionData.carbs, currentScaleFactor, "g")} />
               <NutrientDisplay label="  Sugars" value={displayValue(selectedProduct.nutritionData.sugar, currentScaleFactor, "g")} />
               <NutrientDisplay label="Fiber" value={displayValue(selectedProduct.nutritionData.fiber, currentScaleFactor, "g")} />
-               <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80" onClick={() => {setSelectedProduct(null); setApiError(null); setFoodNameQuery(""); }}>
+              <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80" onClick={() => {setSelectedProduct(null); setApiError(null); setFoodNameQuery(""); setSearchResults(null); }}>
                 Search for another item or change selection
               </Button>
             </div>
+          </>
+        ) : searchResults && searchResults.length > 0 ? (
+          <div className="space-y-2">
+            <h4 className="font-semibold text-md flex items-center"><ListChecks className="mr-2 h-5 w-5 text-primary"/> Select a food item:</h4>
+            <ScrollArea className="h-60 w-full rounded-md border p-2 bg-muted/30">
+              <div className="space-y-1">
+                {searchResults.map((item) => (
+                  <Button
+                    key={item.id}
+                    variant="ghost"
+                    className="w-full justify-start text-left h-auto py-2"
+                    onClick={() => handleSelectProduct(item)}
+                  >
+                    {item.displayName}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+             <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80" onClick={() => {setSearchResults(null); setFoodNameQuery(foodNameQuery); /* Keep query for re-search if needed */ }}>
+                Back to search input
+              </Button>
+          </div>
+        ) : apiError ? (
+           <Alert variant="destructive">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Search Information</AlertTitle>
+              <AlertDescription>{apiError}</AlertDescription>
+          </Alert>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="food-name-query">Food Item Search</Label>
+              <Input
+                id="food-name-query"
+                type="text"
+                placeholder="e.g., Apple, Chicken Breast"
+                value={foodNameQuery}
+                onChange={(e) => setFoodNameQuery(e.target.value)}
+                disabled={isSearching}
+              />
+            </div>
+            <Button onClick={handleSearchFood} disabled={isSearching || !foodNameQuery.trim()} className="w-full">
+              {isSearching ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Search className="mr-2 h-5 w-5" />}
+              Search Food
+            </Button>
           </>
         )}
       </CardContent>
@@ -254,3 +248,5 @@ function NutrientDisplay({ label, value, note }: NutrientDisplayProps) {
     </div>
   );
 }
+
+    
