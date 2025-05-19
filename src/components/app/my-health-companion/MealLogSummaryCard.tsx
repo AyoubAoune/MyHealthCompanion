@@ -27,10 +27,6 @@ export function MealLogSummaryCard() {
     });
   }
 
-  // This const is no longer used for the primary conditional rendering,
-  // but can be useful if we need specific logic inside for an absolutely empty day.
-  // const hasAnyLoggedEntries = currentDayLog && currentDayLog.entries && currentDayLog.entries.length > 0;
-
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -39,7 +35,7 @@ export function MealLogSummaryCard() {
       </CardHeader>
       <CardContent>
         {/* Always render the accordion now */}
-        <Accordion type="multiple" collapsible className="w-full">
+        <Accordion type="multiple" className="w-full">
           {MEAL_TYPES.map((mealType) => {
             const { entries, totalCalories } = mealsData[mealType];
             return (
@@ -74,3 +70,4 @@ export function MealLogSummaryCard() {
     </Card>
   );
 }
+
