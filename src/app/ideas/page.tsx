@@ -49,6 +49,7 @@ export default function IdeasPage() {
         <div className="flex flex-col md:flex-row gap-8">
           {/* Left Card: Meal Preferences */}
           <div className="md:flex-1 w-full">
+            <h2 className="text-xl md:text-2xl font-semibold text-primary mb-4">Not sure what to eat?</h2>
             <MealPreferencesAndSuggestions />
           </div>
           
