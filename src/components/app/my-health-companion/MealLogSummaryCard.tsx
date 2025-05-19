@@ -16,6 +16,7 @@ export function MealLogSummaryCard() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-xl">Today's Logged Meals</CardTitle>
+          <CardDescription>A summary of what you've eaten today, by meal.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-8">
@@ -41,27 +42,6 @@ export function MealLogSummaryCard() {
     }
   });
 
-  const activeMealTypes = MEAL_TYPES.filter(type => mealsData[type].entries.length > 0);
-
-  if (activeMealTypes.length === 0) {
-     return (
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl">Today's Logged Meals</CardTitle>
-           <CardDescription>A summary of what you've eaten today, by meal.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-8">
-            <PackageOpen className="h-12 w-12 mb-4" />
-            <p className="text-lg font-medium">No food logged yet for today.</p>
-            <p className="text-sm">Log some items to see your meal breakdown.</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -70,7 +50,7 @@ export function MealLogSummaryCard() {
       </CardHeader>
       <CardContent>
         <Accordion type="multiple" collapsible className="w-full">
-          {activeMealTypes.map((mealType) => {
+          {MEAL_TYPES.map((mealType) => { // Iterate over all MEAL_TYPES
             const { entries, totalCalories } = mealsData[mealType];
             return (
               <AccordionItem value={mealType} key={mealType}>
@@ -104,3 +84,4 @@ export function MealLogSummaryCard() {
     </Card>
   );
 }
+
