@@ -2,13 +2,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { suggestMeals, type SuggestMealsOutput, type SuggestMealsInput } from "@/ai/flows/suggest-meals";
+import { suggestMeals, type SuggestMealsOutput, type SuggestMealsInput, type MealItem } from "@/ai/flows/suggest-meals";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Sparkles, Loader2 } from "lucide-react";
+import { Lightbulb, Sparkles, Loader2, Salad } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "./AppContext";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +31,7 @@ export function MealPreferencesAndSuggestions() {
   const [dietaryPreferences, setDietaryPreferences] = useState<string>("");
   const [avoidFoods, setAvoidFoods] = useState<string>("");
 
-  const [suggestions, setSuggestions] = useState<SuggestMealsOutput | null>(null);
+  const [suggestedMeals, setSuggestedMeals] = useState<MealItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export function MealPreferencesAndSuggestions() {
         return;
     }
     setIsLoading(true);
-    setSuggestions(null);
+    setSuggestedMeals(null);
 
     const submitInput: SuggestMealsInput = {
       calorieLimit: Number.isNaN(calorieLimit) ? 0 : calorieLimit,
@@ -65,14 +65,24 @@ export function MealPreferencesAndSuggestions() {
     };
 
     try {
-      const result = await suggestMeals(submitInput);
-      setSuggestions(result);
-      toast({
-        title: "Meals Suggested!",
-        description: "Here are some ideas based on your preferences.",
-      });
+      const result: SuggestMealsOutput = await suggestMeals(submitInput);
+      if (result && result.mealSuggestions && result.mealSuggestions.length > 0) {
+        setSuggestedMeals(result.mealSuggestions);
+        toast({
+          title: "Meals Suggested!",
+          description: "Here are some ideas based on your preferences.",
+        });
+      } else {
+        setSuggestedMeals([]);
+        toast({
+          title: "No Suggestions",
+          description: "No meal suggestions were found for your criteria. Try adjusting your preferences.",
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error("Error fetching meal suggestions:", error);
+      setSuggestedMeals([]);
       toast({
         title: "Error",
         description: "Could not fetch meal suggestions. Please try again.",
@@ -109,7 +119,7 @@ export function MealPreferencesAndSuggestions() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="calorie-limit">Calorie Limit (kcal)</Label>
+              <Label htmlFor="calorie-limit">Max Calorie Limit (kcal) for this meal</Label>
               <Input
                 id="calorie-limit"
                 type="number"
@@ -118,7 +128,7 @@ export function MealPreferencesAndSuggestions() {
               />
             </div>
             <div>
-              <Label htmlFor="dietary-preferences">Dietary Preferences</Label>
+              <Label htmlFor="dietary-preferences">Dietary Preferences (optional)</Label>
               <Input
                 id="dietary-preferences"
                 type="text"
@@ -128,7 +138,7 @@ export function MealPreferencesAndSuggestions() {
               />
             </div>
             <div>
-              <Label htmlFor="avoid-foods">Foods to Avoid</Label>
+              <Label htmlFor="avoid-foods">Foods to Avoid (optional, comma-separated)</Label>
               <Input
                 id="avoid-foods"
                 type="text"
@@ -151,18 +161,41 @@ export function MealPreferencesAndSuggestions() {
         </form>
       </Card>
 
-      {suggestions && (
+      {suggestedMeals && suggestedMeals.length > 0 && (
         <>
           <Separator />
-          <Card className="shadow-lg">
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-primary flex items-center">
+              <Salad className="mr-2 h-6 w-6" />
+              Your Meal Suggestions for {timeOfDay}
+            </h2>
+            {suggestedMeals.map((meal, index) => (
+              <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle>{meal.name}</CardTitle>
+                  {meal.calories && (
+                    <CardDescription className="text-sm text-accent-foreground font-medium">
+                      {meal.calories}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{meal.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+       {suggestedMeals && suggestedMeals.length === 0 && !isLoading && (
+        <>
+          <Separator />
+          <Card className="shadow-md">
             <CardHeader>
-              <CardTitle className="text-xl">Your Meal Suggestions for {timeOfDay}</CardTitle>
-              <CardDescription>Here are some AI-powered ideas based on your criteria.</CardDescription>
+                <CardTitle>No Suggestions Found</CardTitle>
             </CardHeader>
             <CardContent>
-              <pre className="whitespace-pre-wrap text-sm bg-muted/50 p-4 rounded-md max-h-96 overflow-y-auto">
-                {suggestions.mealSuggestions}
-              </pre>
+                <p className="text-muted-foreground">We couldn't find any meal suggestions based on your current criteria. Please try adjusting your preferences, like increasing the calorie limit or removing some restrictions.</p>
             </CardContent>
           </Card>
         </>
@@ -170,3 +203,4 @@ export function MealPreferencesAndSuggestions() {
     </div>
   );
 }
+

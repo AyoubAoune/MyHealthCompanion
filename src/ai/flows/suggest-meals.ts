@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -5,7 +6,7 @@
  *
  * - suggestMeals - A function that generates meal suggestions.
  * - SuggestMealsInput - The input type for the suggestMeals function.
- * - SuggestMealsOutput - The return type for the suggestMeals function.
+ * - SuggestMealsOutput - The return type for the suggestMeals function, now an array of meal objects.
  */
 
 import {ai} from '@/ai/genkit';
@@ -18,7 +19,7 @@ const SuggestMealsInputSchema = z.object({
   dietaryPreferences: z
     .string()
     .describe(
-      'The dietary preferences of the user, such as vegetarian, vegan, gluten-free, etc.'
+      'The dietary preferences of the user, such as vegetarian, vegan, gluten-free, etc. Can be empty.'
     ),
   timeOfDay: z
     .string()
@@ -27,14 +28,19 @@ const SuggestMealsInputSchema = z.object({
     ),
   avoidFoods: z
     .string()
-    .describe('Foods the user wants to avoid, comma separated.'),
+    .describe('Foods the user wants to avoid, comma separated. Can be empty.'),
 });
 export type SuggestMealsInput = z.infer<typeof SuggestMealsInputSchema>;
 
+const MealItemSchema = z.object({
+  name: z.string().describe('The name or title of the meal suggestion. Example: "Apple slices with 2 tablespoons of peanut butter"'),
+  description: z.string().describe('A brief description of the meal, including key ingredients or benefits. Example: "A classic combination providing fiber, healthy fats, and some protein."'),
+  calories: z.string().describe('Approximate calorie count for the meal as a string. Example: "Approximately 190 calories" or "About 200 kcal"'),
+});
+export type MealItem = z.infer<typeof MealItemSchema>;
+
 const SuggestMealsOutputSchema = z.object({
-  mealSuggestions: z
-    .string()
-    .describe('A list of meal suggestions that meet the specified criteria.'),
+  mealSuggestions: z.array(MealItemSchema).describe('A list of individual meal suggestion objects. Should contain between 5 and 10 suggestions if possible.'),
 });
 export type SuggestMealsOutput = z.infer<typeof SuggestMealsOutputSchema>;
 
@@ -52,10 +58,36 @@ Calorie Limit: {{{calorieLimit}}}
 Dietary Preferences: {{{dietaryPreferences}}}
 Foods to Avoid: {{{avoidFoods}}}
 
-If the Time of Day is provided, focus the suggestions for that specific meal time. Otherwise, provide a variety of meal options for breakfast, lunch, and dinner that align with their health goals.
-Provide a variety of meal options for breakfast, lunch, and dinner that align with their health goals.
+Provide between 5 and 10 meal suggestions.
+Focus the suggestions for that specific meal time ({{{timeOfDay}}}).
+Ensure each suggestion is under the specified calorie limit ({{{calorieLimit}}}).
+If dietary preferences are provided ({{{dietaryPreferences}}}), adhere to them.
+If foods to avoid are listed ({{{avoidFoods}}}), ensure suggestions do not contain them.
 
-Output the suggestions in a readable format.
+Output EXACTLY a JSON object. This JSON object MUST have a single key "mealSuggestions".
+The value of "mealSuggestions" MUST be an array of JSON objects.
+Each object in the "mealSuggestions" array MUST represent a single meal and have the following fields:
+- "name": string (The name or title of the meal suggestion. e.g., "Apple slices with 2 tablespoons of peanut butter")
+- "description": string (A brief description of the meal, including key ingredients or benefits. e.g., "A classic combination providing fiber, healthy fats, and some protein.")
+- "calories": string (Approximate calorie count for the meal, as a string. e.g., "Approximately 190 calories")
+
+Do not include any introductory text, numbering, or any other text outside of the main JSON object.
+
+Example of the exact output format:
+{
+  "mealSuggestions": [
+    {
+      "name": "Greek yogurt with berries",
+      "description": "A 5.3-ounce container of non-fat Greek yogurt (about 100 calories) topped with 1/2 cup of mixed berries (about 40 calories). This snack is high in protein and antioxidants.",
+      "calories": "Approximately 140 calories"
+    },
+    {
+      "name": "Hard-boiled egg",
+      "description": "One large hard-boiled egg is a protein-packed snack.",
+      "calories": "Approximately 78 calories"
+    }
+  ]
+}
 `,
 });
 
@@ -67,6 +99,14 @@ const suggestMealsFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+        // Handle cases where the LLM might not return valid JSON matching the schema.
+        // This could be due to prompt issues, model limitations, or unexpected responses.
+        console.error("Meal suggestion flow did not receive valid output from the prompt.");
+        return { mealSuggestions: [] }; // Return empty suggestions or throw an error
+    }
+    // The output should already be parsed by Genkit based on the outputSchema.
+    return output;
   }
 );
+
