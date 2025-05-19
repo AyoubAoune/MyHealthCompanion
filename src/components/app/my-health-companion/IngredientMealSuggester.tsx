@@ -2,15 +2,21 @@
 "use client";
 
 import { useState } from "react";
-import { suggestMealFromIngredients, type SuggestedMealFromIngredientsOutput, type SuggestMealFromIngredientsInput } from "@/ai/flows/suggest-meal-from-ingredients";
+import { 
+  suggestMealsFromIngredients, 
+  type SuggestMealsFromIngredientsOutput, 
+  type SuggestMealsFromIngredientsInput,
+  type SuggestedMealItem // Import the single meal item type
+} from "@/ai/flows/suggest-meal-from-ingredients";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ChefHat, Sparkles, Loader2, Utensils } from "lucide-react";
+import { ChefHat, Sparkles, Loader2, Utensils, Salad } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
 
 const mealTypes = [
   "Any",
@@ -27,7 +33,7 @@ export function IngredientMealSuggester() {
   const [mealType, setMealType] = useState<string>(mealTypes[0]);
   const [dietaryPreferences, setDietaryPreferences] = useState<string>("");
 
-  const [suggestedMeal, setSuggestedMeal] = useState<SuggestedMealFromIngredientsOutput | null>(null);
+  const [suggestedMealsList, setSuggestedMealsList] = useState<SuggestedMealItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,36 +43,36 @@ export function IngredientMealSuggester() {
         return;
     }
     setIsLoading(true);
-    setSuggestedMeal(null);
+    setSuggestedMealsList(null);
 
-    const submitInput: SuggestMealFromIngredientsInput = {
+    const submitInput: SuggestMealsFromIngredientsInput = {
       ingredients,
       mealType: mealType === "Any" ? undefined : mealType,
       dietaryPreferences: dietaryPreferences.trim() === "" ? undefined : dietaryPreferences,
     };
 
     try {
-      const result: SuggestedMealFromIngredientsOutput = await suggestMealFromIngredients(submitInput);
-      if (result && result.name && result.name !== "Suggestion Error") {
-        setSuggestedMeal(result);
+      const result: SuggestMealsFromIngredientsOutput = await suggestMealsFromIngredients(submitInput);
+      if (result && result.mealSuggestions && result.mealSuggestions.length > 0) {
+        setSuggestedMealsList(result.mealSuggestions);
         toast({
-          title: "Meal Suggested!",
-          description: `Here's an idea for your ingredients: ${result.name}`,
+          title: "Meals Suggested!",
+          description: `Here are some ideas for your ingredients.`,
         });
       } else {
-        setSuggestedMeal(null); // Clear previous suggestion if any
+        setSuggestedMealsList([]); // Set to empty array to indicate no results found
         toast({
-          title: "Suggestion Problem",
-          description: result?.description || "Could not generate a meal suggestion. Please try rephrasing your ingredients or try again.",
+          title: "No Suggestions Found",
+          description: "Could not generate any meal suggestions. Please try rephrasing your ingredients or try again.",
           variant: "default",
         });
       }
     } catch (error) {
-      console.error("Error fetching meal suggestion from ingredients:", error);
-      setSuggestedMeal(null);
+      console.error("Error fetching meal suggestions from ingredients:", error);
+      setSuggestedMealsList([]);
       toast({
         title: "Error",
-        description: "An unexpected error occurred while fetching the meal suggestion. Please try again.",
+        description: "An unexpected error occurred while fetching meal suggestions. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -82,7 +88,7 @@ export function IngredientMealSuggester() {
             <CardTitle className="text-xl">Meal from Your Ingredients</CardTitle>
             <ChefHat className="h-6 w-6 text-primary" />
           </div>
-          <CardDescription>Tell us what ingredients you have, and we'll suggest a meal!</CardDescription>
+          <CardDescription>Tell us what ingredients you have, and we'll suggest some meals!</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -97,9 +103,9 @@ export function IngredientMealSuggester() {
               />
             </div>
             <div>
-              <Label htmlFor="meal-type-select">Desired Meal Type (optional)</Label>
+              <Label htmlFor="meal-type-select-ingredients">Desired Meal Type (optional)</Label>
               <Select value={mealType} onValueChange={setMealType}>
-                <SelectTrigger id="meal-type-select">
+                <SelectTrigger id="meal-type-select-ingredients">
                   <SelectValue placeholder="Select a meal type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -127,43 +133,54 @@ export function IngredientMealSuggester() {
               ) : (
                 <Sparkles className="mr-2 h-4 w-4" />
               )}
-              Suggest Meal with Ingredients
+              Suggest Meals with Ingredients
             </Button>
           </CardFooter>
         </form>
       </Card>
 
-      {suggestedMeal && suggestedMeal.name !== "Suggestion Error" && (
-        <Card className="shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-                 <CardTitle className="text-lg">{suggestedMeal.name}</CardTitle>
-                 <Utensils className="h-5 w-5 text-accent"/>
-            </div>
-            {suggestedMeal.calories && (
-              <CardDescription className="text-sm text-accent-foreground font-medium">
-                {suggestedMeal.calories}
-              </CardDescription>
-            )}
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground whitespace-pre-line">{suggestedMeal.description}</p>
-            {suggestedMeal.ingredientsUsed && suggestedMeal.ingredientsUsed.length > 0 && (
-                <div className="mt-3">
-                    <p className="text-xs font-semibold">Key ingredients used:</p>
-                    <p className="text-xs text-muted-foreground">{suggestedMeal.ingredientsUsed.join(', ')}</p>
-                </div>
-            )}
-          </CardContent>
-        </Card>
+      {suggestedMealsList && suggestedMealsList.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-primary flex items-center">
+              <Salad className="mr-2 h-6 w-6" />
+              Your Meal Suggestions
+            </h2>
+            {suggestedMealsList.map((meal, index) => (
+              <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{meal.name}</CardTitle>
+                    <Utensils className="h-5 w-5 text-accent"/>
+                  </div>
+                  {meal.calories && (
+                    <CardDescription className="text-sm text-accent-foreground font-medium">
+                      {meal.calories}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground whitespace-pre-line">{meal.description}</p>
+                  {meal.ingredientsUsed && meal.ingredientsUsed.length > 0 && (
+                      <div className="mt-3">
+                          <p className="text-xs font-semibold">Key ingredients used:</p>
+                          <p className="text-xs text-muted-foreground">{meal.ingredientsUsed.join(', ')}</p>
+                      </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
-      {suggestedMeal && suggestedMeal.name === "Suggestion Error" && !isLoading && (
+      {suggestedMealsList && suggestedMealsList.length === 0 && !isLoading && (
          <Card className="shadow-md">
             <CardHeader>
-                <CardTitle>Suggestion Problem</CardTitle>
+                <CardTitle>No Suggestions Found</CardTitle>
             </CardHeader>
             <CardContent>
-                <p className="text-muted-foreground">{suggestedMeal.description || "We couldn't generate a meal suggestion based on your input. Please try again or adjust your ingredients."}</p>
+                <p className="text-muted-foreground">We couldn't generate any meal suggestions based on your input. Please try again or adjust your ingredients.</p>
             </CardContent>
           </Card>
       )}
