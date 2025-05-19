@@ -81,8 +81,8 @@ export function IngredientMealSuggester() {
   };
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
-      <Card className="shadow-lg h-full flex flex-col">
+    <div className="space-y-6 flex flex-col"> {/* Removed h-full */}
+      <Card className="shadow-lg flex flex-col"> {/* Removed h-full, kept flex flex-col */}
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl">Meal from Your Ingredients</CardTitle>
@@ -90,8 +90,8 @@ export function IngredientMealSuggester() {
           </div>
           <CardDescription>Tell us what ingredients you have, and we'll suggest some meals!</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
-          <CardContent className="space-y-4 flex-grow">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-grow"> {/* flex-grow for form within card */}
+          <CardContent className="space-y-4 flex-grow"> {/* flex-grow for content within form */}
             <div>
               <Label htmlFor="ingredients-input">Available Ingredients</Label>
               <Textarea
@@ -141,9 +141,9 @@ export function IngredientMealSuggester() {
 
       {suggestedMealsList && suggestedMealsList.length > 0 && (
         <>
-          <Separator className="my-4" /> {/* Adjusted margin for separator */}
-          <div className="space-y-4 flex-shrink-0"> {/* Added flex-shrink-0 here */}
-            <h2 className="text-lg font-semibold text-primary flex items-center"> {/* Adjusted heading size */}
+          <Separator className="my-4" />
+          <div className="space-y-4 flex-shrink-0"> 
+            <h2 className="text-lg font-semibold text-primary flex items-center"> 
               <Salad className="mr-2 h-6 w-6" />
               Your Meal Suggestions
             </h2>
@@ -151,17 +151,17 @@ export function IngredientMealSuggester() {
               <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{meal.name}</CardTitle> {/* Adjusted title size */}
+                    <CardTitle className="text-base">{meal.name}</CardTitle> 
                     <Utensils className="h-5 w-5 text-accent"/>
                   </div>
                   {meal.calories && (
-                    <CardDescription className="text-xs text-accent-foreground font-medium"> {/* Adjusted text size */}
+                    <CardDescription className="text-xs text-accent-foreground font-medium">
                       {meal.calories}
                     </CardDescription>
                   )}
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xs text-muted-foreground whitespace-pre-line">{meal.description}</p> {/* Adjusted text size */}
+                  <p className="text-xs text-muted-foreground whitespace-pre-line">{meal.description}</p>
                   {meal.ingredientsUsed && meal.ingredientsUsed.length > 0 && (
                       <div className="mt-3">
                           <p className="text-xs font-semibold">Key ingredients used:</p>
@@ -175,12 +175,12 @@ export function IngredientMealSuggester() {
         </>
       )}
       {suggestedMealsList && suggestedMealsList.length === 0 && !isLoading && (
-         <Card className="shadow-md flex-shrink-0"> {/* Added flex-shrink-0 here */}
+         <Card className="shadow-md flex-shrink-0">
             <CardHeader>
-                <CardTitle className="text-base">No Suggestions Found</CardTitle> {/* Adjusted title size */}
+                <CardTitle className="text-base">No Suggestions Found</CardTitle>
             </CardHeader>
             <CardContent>
-                <p className="text-xs text-muted-foreground">We couldn't generate any meal suggestions based on your input. Please try again or adjust your ingredients.</p> {/* Adjusted text size */}
+                <p className="text-xs text-muted-foreground">We couldn't generate any meal suggestions based on your input. Please try again or adjust your ingredients.</p>
             </CardContent>
           </Card>
       )}

@@ -94,8 +94,8 @@ export function MealPreferencesAndSuggestions() {
   };
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
-      <Card className="shadow-lg h-full flex flex-col">
+    <div className="space-y-6 flex flex-col"> {/* Removed h-full */}
+      <Card className="shadow-lg flex flex-col"> {/* Removed h-full, kept flex flex-col */}
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl">Set Your Meal Preferences</CardTitle>
@@ -103,8 +103,8 @@ export function MealPreferencesAndSuggestions() {
           </div>
           <CardDescription>Tell us what you're looking for, and we'll suggest some meal ideas.</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
-          <CardContent className="space-y-4 flex-grow">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-grow"> {/* flex-grow for form within card */}
+          <CardContent className="space-y-4 flex-grow"> {/* flex-grow for content within form */}
             <div>
               <Label htmlFor="time-of-day">Time of Day</Label>
               <Select value={timeOfDay} onValueChange={setTimeOfDay}>
@@ -163,24 +163,24 @@ export function MealPreferencesAndSuggestions() {
 
       {suggestedMeals && suggestedMeals.length > 0 && (
         <>
-          <Separator className="my-4" /> {/* Adjusted margin for separator */}
-          <div className="space-y-4 flex-shrink-0"> {/* Added flex-shrink-0 here */}
-            <h2 className="text-lg font-semibold text-primary flex items-center"> {/* Adjusted heading size */}
-              <Salad className="mr-2 h-5 w-5" /> {/* Adjusted icon size */}
+          <Separator className="my-4" />
+          <div className="space-y-4 flex-shrink-0">
+            <h2 className="text-lg font-semibold text-primary flex items-center">
+              <Salad className="mr-2 h-5 w-5" />
               Your Meal Suggestions for {timeOfDay}
             </h2>
             {suggestedMeals.map((meal, index) => (
               <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <CardTitle className="text-base">{meal.name}</CardTitle> {/* Adjusted title size */}
+                  <CardTitle className="text-base">{meal.name}</CardTitle>
                   {meal.calories && (
-                    <CardDescription className="text-xs text-accent-foreground font-medium"> {/* Adjusted text size */}
+                    <CardDescription className="text-xs text-accent-foreground font-medium">
                       {meal.calories}
                     </CardDescription>
                   )}
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xs text-muted-foreground">{meal.description}</p> {/* Adjusted text size */}
+                  <p className="text-xs text-muted-foreground">{meal.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -189,13 +189,13 @@ export function MealPreferencesAndSuggestions() {
       )}
        {suggestedMeals && suggestedMeals.length === 0 && !isLoading && (
         <>
-          <Separator className="my-4" /> {/* Adjusted margin for separator */}
-          <Card className="shadow-md flex-shrink-0"> {/* Added flex-shrink-0 here */}
+          <Separator className="my-4" />
+          <Card className="shadow-md flex-shrink-0">
             <CardHeader>
-                <CardTitle className="text-base">No Suggestions Found</CardTitle> {/* Adjusted title size */}
+                <CardTitle className="text-base">No Suggestions Found</CardTitle>
             </CardHeader>
             <CardContent>
-                <p className="text-xs text-muted-foreground">We couldn't find any meal suggestions based on your current criteria. Please try adjusting your preferences, like increasing the calorie limit or removing some restrictions.</p> {/* Adjusted text size */}
+                <p className="text-xs text-muted-foreground">We couldn't find any meal suggestions based on your current criteria. Please try adjusting your preferences, like increasing the calorie limit or removing some restrictions.</p>
             </CardContent>
           </Card>
         </>
