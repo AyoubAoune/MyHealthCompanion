@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Lightbulb, Sparkles, Loader2, Salad } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAppContext } from "./AppContext";
+// useAppContext is not used directly here for calorieLimit initialization anymore
+// import { useAppContext } from "./AppContext"; 
 import { Separator } from "@/components/ui/separator";
 
 const mealTimes = [
@@ -23,28 +24,29 @@ const mealTimes = [
 ];
 
 export function MealPreferencesAndSuggestions() {
-  const { userSettings } = useAppContext();
+  // const { userSettings } = useAppContext(); // Not needed for calorieLimit anymore
   const { toast } = useToast();
 
   const [timeOfDay, setTimeOfDay] = useState<string>(mealTimes[0]);
-  const [calorieLimit, setCalorieLimit] = useState<number>(0);
+  // Set default calorie limit for this specific form to 200
+  const [calorieLimit, setCalorieLimit] = useState<number>(200); 
   const [dietaryPreferences, setDietaryPreferences] = useState<string>("");
   const [avoidFoods, setAvoidFoods] = useState<string>("");
 
   const [suggestedMeals, setSuggestedMeals] = useState<MealItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    const targetCalorieLimit = userSettings.dailyCalorieTarget;
-    setCalorieLimit((typeof targetCalorieLimit === 'number' && !Number.isNaN(targetCalorieLimit)) ? targetCalorieLimit : 0);
-  }, [userSettings.dailyCalorieTarget]);
+  // Removed useEffect that tied calorieLimit to userSettings.dailyCalorieTarget
+  // This calorieLimit is now specific to this form's context.
 
   const handleCalorieInputChange = (value: string) => {
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue >= 0) {
       setCalorieLimit(numValue);
     } else if (value === "") {
-      setCalorieLimit(0);
+      // Allow clearing the input, default to 0 if empty string is parsed,
+      // or handle as per requirements (e.g., keep it as 0 or last valid)
+      setCalorieLimit(0); 
     }
   };
 
@@ -58,7 +60,7 @@ export function MealPreferencesAndSuggestions() {
     setSuggestedMeals(null);
 
     const submitInput: SuggestMealsInput = {
-      calorieLimit: Number.isNaN(calorieLimit) ? 0 : calorieLimit,
+      calorieLimit: Number.isNaN(calorieLimit) ? 0 : calorieLimit, // Ensure calorieLimit is a number
       dietaryPreferences,
       avoidFoods,
       timeOfDay,
@@ -94,8 +96,8 @@ export function MealPreferencesAndSuggestions() {
   };
 
   return (
-    <div className="space-y-6 flex flex-col"> {/* Removed h-full */}
-      <Card className="shadow-lg flex flex-col"> {/* Removed h-full, kept flex flex-col */}
+    <div className="space-y-6 flex flex-col">
+      <Card className="shadow-lg flex flex-col">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl">Set Your Meal Preferences</CardTitle>
@@ -103,8 +105,8 @@ export function MealPreferencesAndSuggestions() {
           </div>
           <CardDescription>Tell us what you're looking for, and we'll suggest some meal ideas.</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col flex-grow"> {/* flex-grow for form within card */}
-          <CardContent className="space-y-4 flex-grow"> {/* flex-grow for content within form */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
+          <CardContent className="space-y-4 flex-grow">
             <div>
               <Label htmlFor="time-of-day">Time of Day</Label>
               <Select value={timeOfDay} onValueChange={setTimeOfDay}>
@@ -123,8 +125,9 @@ export function MealPreferencesAndSuggestions() {
               <Input
                 id="calorie-limit"
                 type="number"
-                value={calorieLimit.toString()}
+                value={calorieLimit.toString()} // Ensure it's a string for the input
                 onChange={(e) => handleCalorieInputChange(e.target.value)}
+                min="0"
               />
             </div>
             <div>
