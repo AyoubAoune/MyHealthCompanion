@@ -3,8 +3,7 @@
 
 import { useState, useEffect } from "react";
 import type { MealSuggestionPreferences } from "./types";
-import { suggestMeals, type SuggestMealsOutput } from "@/ai/flows/suggest-meals";
-import { Button } from "@/components/ui/button";
+import { suggestMeals, type SuggestMealsOutput, type SuggestMealsInput } from "@/ai/flows/suggest-meals";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,16 +11,18 @@ import { Lightbulb, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "./AppContext";
 
-export function MealSuggestionCard() {
+export function MealSuggestionCard({ timeOfDay }: { timeOfDay: string }) {
   const { userSettings } = useAppContext();
-  const [preferences, setPreferences] = useState<MealSuggestionPreferences>({
-    calorieLimit: 0, // Initialize with a safe default
+
+  const [preferences, setPreferences] = useState<Omit<MealSuggestionPreferences, 'timeOfDay'>>({
+    calorieLimit: 0, 
     dietaryPreferences: "",
     avoidFoods: "",
   });
   const [suggestions, setSuggestions] = useState<SuggestMealsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
 
   useEffect(() => {
     const targetCalorieLimit = userSettings.dailyCalorieTarget;
@@ -31,7 +32,7 @@ export function MealSuggestionCard() {
     }));
   }, [userSettings.dailyCalorieTarget]);
 
-  const handleInputChange = (field: keyof MealSuggestionPreferences, value: string) => {
+  const handleInputChange = (field: keyof Omit<MealSuggestionPreferences, 'timeOfDay'>, value: string) => {
     if (field === 'calorieLimit') {
       const numValue = parseInt(value, 10);
       if (!isNaN(numValue) && numValue >= 0) {
@@ -39,9 +40,7 @@ export function MealSuggestionCard() {
       } else if (value === "") {
         setPreferences(prev => ({ ...prev, calorieLimit: 0 }));
       }
-      // If 'value' is non-numeric and not empty (e.g., "abc"), state for calorieLimit doesn't change.
     } else {
-      // Handles dietaryPreferences and avoidFoods, which are strings
       setPreferences(prev => ({ ...prev, [field]: value }));
     }
   };
@@ -51,14 +50,14 @@ export function MealSuggestionCard() {
     setIsLoading(true);
     setSuggestions(null);
 
-    // Ensure calorieLimit is a valid number before submitting
-    const submitPreferences: MealSuggestionPreferences = {
+    const submitInput: SuggestMealsInput = {
       ...preferences,
       calorieLimit: Number.isNaN(preferences.calorieLimit) ? 0 : preferences.calorieLimit,
+      timeOfDay: timeOfDay, 
     };
 
     try {
-      const result = await suggestMeals(submitPreferences);
+      const result = await suggestMeals(submitInput);
       setSuggestions(result);
       toast({
         title: "Meals Suggested!",
@@ -80,26 +79,26 @@ export function MealSuggestionCard() {
     <Card className="shadow-lg">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">Meal Ideas</CardTitle>
+          <CardTitle className="text-xl">{timeOfDay} Ideas</CardTitle>
           <Lightbulb className="h-6 w-6 text-primary" />
         </div>
-        <CardDescription>Get AI-powered meal suggestions based on your needs.</CardDescription>
+        <CardDescription>Get AI-powered meal suggestions for your {timeOfDay.toLowerCase()}.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="calorie-limit">Calorie Limit (kcal)</Label>
+            <Label htmlFor={`calorie-limit-${timeOfDay.replace(/\s+/g, '-')}`}>Calorie Limit (kcal)</Label>
             <Input
-              id="calorie-limit"
+              id={`calorie-limit-${timeOfDay.replace(/\s+/g, '-')}`}
               type="number"
               value={preferences.calorieLimit.toString()}
               onChange={(e) => handleInputChange('calorieLimit', e.target.value)}
             />
           </div>
           <div>
-            <Label htmlFor="dietary-preferences">Dietary Preferences</Label>
+            <Label htmlFor={`dietary-preferences-${timeOfDay.replace(/\s+/g, '-')}`}>Dietary Preferences</Label>
             <Input
-              id="dietary-preferences"
+              id={`dietary-preferences-${timeOfDay.replace(/\s+/g, '-')}`}
               type="text"
               placeholder="e.g., vegetarian, low-carb"
               value={preferences.dietaryPreferences}
@@ -107,9 +106,9 @@ export function MealSuggestionCard() {
             />
           </div>
           <div>
-            <Label htmlFor="avoid-foods">Foods to Avoid</Label>
+            <Label htmlFor={`avoid-foods-${timeOfDay.replace(/\s+/g, '-')}`}>Foods to Avoid</Label>
             <Input
-              id="avoid-foods"
+              id={`avoid-foods-${timeOfDay.replace(/\s+/g, '-')}`}
               type="text"
               placeholder="e.g., peanuts, dairy, gluten"
               value={preferences.avoidFoods}

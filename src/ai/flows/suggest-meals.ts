@@ -20,6 +20,11 @@ const SuggestMealsInputSchema = z.object({
     .describe(
       'The dietary preferences of the user, such as vegetarian, vegan, gluten-free, etc.'
     ),
+  timeOfDay: z
+    .string()
+    .describe(
+      'The time of day for the meal, e.g., "Breakfast", "Lunch", "Dinner", "Morning snack", "Afternoon snack", "Late snack".'
+    ),
   avoidFoods: z
     .string()
     .describe('Foods the user wants to avoid, comma separated.'),
@@ -42,11 +47,12 @@ const prompt = ai.definePrompt({
   input: {schema: SuggestMealsInputSchema},
   output: {schema: SuggestMealsOutputSchema},
   prompt: `You are a meal suggestion expert. You will provide a list of meal suggestions based on the user's caloric limit, dietary preferences, and foods to avoid.
-
+Time of Day: {{{timeOfDay}}}
 Calorie Limit: {{{calorieLimit}}}
 Dietary Preferences: {{{dietaryPreferences}}}
 Foods to Avoid: {{{avoidFoods}}}
 
+If the Time of Day is provided, focus the suggestions for that specific meal time. Otherwise, provide a variety of meal options for breakfast, lunch, and dinner that align with their health goals.
 Provide a variety of meal options for breakfast, lunch, and dinner that align with their health goals.
 
 Output the suggestions in a readable format.
