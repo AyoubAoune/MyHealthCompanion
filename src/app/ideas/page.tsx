@@ -2,7 +2,7 @@
 "use client";
 
 import { MealSuggestionCard } from "@/components/app/my-health-companion/MealSuggestionCard";
-// import { useAppContext } from "@/components/app/my-health-companion/AppContext"; // Keep this if needed elsewhere
+import { useAppContext } from "@/components/app/my-health-companion/AppContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 
