@@ -20,32 +20,35 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientProps) {
-  // console.log('[WeightTrendChartClient] Received weightLogs:', JSON.stringify(weightLogs, null, 2)); // For local debugging
-
   const chartData = React.useMemo(() => {
-    if (!weightLogs) return [];
+    if (!weightLogs || weightLogs.length === 0) return [];
     return weightLogs
       .map(log => ({
         date: log.date,
-        // Ensure weight is a number; it should be from AppContext, but safeguard here.
         weight: typeof log.weight === 'string' ? parseFloat(log.weight) : log.weight, 
       }))
       .filter(log => {
-        const dateValid = log.date && !isNaN(parseDate(log.date).getTime());
-        const weightValid = typeof log.weight === 'number' && !isNaN(log.weight);
+        let dateObj;
+        try {
+            dateObj = parseDate(log.date);
+        } catch (e) {
+            return false;
+        }
+        const dateValid = dateObj && !isNaN(dateObj.getTime());
+        const weightValid = typeof log.weight === 'number' && !isNaN(log.weight) && isFinite(log.weight);
         return dateValid && weightValid;
       })
       .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
   }, [weightLogs]);
 
-  // console.log('[WeightTrendChartClient] Computed chartData:', JSON.stringify(chartData, null, 2)); // For local debugging
-
   if (chartData.length < 2) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">Log at least two valid weight entries to see the trend.</p>
+        <p className="text-muted-foreground">
+          Log at least two valid weight entries on different dates to see the trend.
+        </p>
         <p className="text-xs text-muted-foreground mt-1">
-          (Received {weightLogs?.length || 0} log(s), found {chartData.length} valid data point(s) for chart)
+          (Received {weightLogs?.length || 0} log entry/entries. After filtering for valid dates and weights, {chartData.length} point(s) are available for the chart. Ensure weights are logged on at least two distinct, valid dates.)
         </p>
       </div>
     );
@@ -70,12 +73,13 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
           axisLine={false}
           tickMargin={8}
           tickFormatter={(value: string) => format(parseDate(value), "MMM d")}
+          allowDuplicatedCategory={false}
+          minTickGap={20} // Add a minimum gap between ticks
         />
         <YAxis
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          // domain={['dataMin - 2', 'dataMax + 2']} // Temporarily removed for debugging
           tickFormatter={(value) => `${value} kg`}
         />
         <ChartTooltip
