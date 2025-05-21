@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
+  // Function to read the value from localStorage or return initialValue
   const readValue = useCallback((): T => {
     if (typeof window === 'undefined') {
       return initialValue;
@@ -15,35 +16,38 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
     }
   }, [initialValue, key]);
 
+  // State to store our value
+  // Pass a function to useState so it's only executed on initial render
   const [storedValue, setStoredValue] = useState<T>(readValue);
 
-  const setValue = (value: T | ((val: T) => T)) => {
-    if (typeof window === 'undefined') {
-      console.warn(
-        `Tried setting localStorage key “${key}” even though environment is not a client`
-      );
-      return;
-    }
-    try {
-      const valueToStore =
-        value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.warn(`Error setting localStorage key “${key}”:`, error);
-    }
-  };
-  
-  useEffect(() => {
-    setStoredValue(readValue());
-  }, [key, readValue]);
+  // The setValue function now just calls setStoredValue.
+  // It accepts a value or a function that receives the previous value.
+  // This function's reference is stable.
+  const setValue = useCallback((value: T | ((val: T) => T)) => {
+    setStoredValue(value);
+  }, []);
 
-  // Listen to storage changes from other tabs/windows
+  // useEffect to update localStorage when storedValue changes (React state)
+  useEffect(() => {
+    // This effect runs after setStoredValue has updated the state and re-render has occurred.
+    // So, `storedValue` here is the most up-to-date.
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(storedValue));
+      } catch (error) {
+        console.warn(`Error setting localStorage key “${key}” during sync:`, error);
+      }
+    }
+  }, [key, storedValue]); // Re-run if key or the React state `storedValue` changes.
+
+  // useEffect to listen for changes from other tabs/windows
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === key && event.storageArea === window.localStorage) {
         try {
-          setStoredValue(event.newValue ? JSON.parse(event.newValue) : initialValue);
+          // Update React state if localStorage changed in another tab
+          const newValueFromStorage = event.newValue ? JSON.parse(event.newValue) : initialValue;
+          setStoredValue(newValueFromStorage);
         } catch (error) {
           console.warn(`Error parsing localStorage change for key “${key}”:`, error);
           setStoredValue(initialValue);
@@ -51,12 +55,13 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorageChange);
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+      };
+    }
   }, [key, initialValue]);
-
 
   return [storedValue, setValue];
 }
