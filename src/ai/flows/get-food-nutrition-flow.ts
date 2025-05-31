@@ -63,32 +63,38 @@ interface TempProductSearchResultItem extends ProductSearchResultItem {
 const EXCLUDED_BRAND_KEYWORDS: string[] = [
   "mcdonald's", "subway", "burger king", "kfc", "starbucks", 
   "domino's", "pizza hut", "taco bell", "wendy's", "dunkin", 
-  "costco", "nestle", "unilever", "pepsi", "coca-cola", "kraft", // Added some major food corp brands
-  "general mills", "kellogg's", "monster energy", "red bull" // Added more
+  "costco", "nestle", "unilever", "pepsi", "coca-cola", "kraft",
+  "general mills", "kellogg's", "monster energy", "red bull"
 ];
 
 export async function searchFoodProducts(
   input: SearchFoodProductsInput
 ): Promise<SearchFoodProductsOutput> {
   const encodedSearchTerm = encodeURIComponent(input.foodName);
-  // Requesting specific fields to reduce payload size
   const fieldsToFetch = [
     "code", "product_name", "product_name_en", "generic_name", "brands",
-    "nutriments", "ingredients_n", "ingredients_text_en", // Added ingredients_text_en for fallback
+    "nutriments", "ingredients_n", "ingredients_text_en",
     "energy-kcal_100g", "fat_100g", "saturated-fat_100g", "trans-fat_100g",
     "monounsaturated-fat_100g", "polyunsaturated-fat_100g",
     "carbohydrates_100g", "sugars_100g", "proteins_100g", "fiber_100g"
   ].join(',');
   
-  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=50&sort_by=popularity_key&fields=${fieldsToFetch}`; // Increased page_size for more initial results to filter
+  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=50&sort_by=popularity_key&fields=${fieldsToFetch}`;
 
   try {
+    const startTime = Date.now();
+    console.log(`[searchFoodProducts] Fetching URL: ${url}`);
+
     const response = await fetch(url, {
         method: 'GET',
         headers: {
             'User-Agent': 'MyHealthCompanionApp/1.0 (Web; +https://myhealthcompanion.com/contact)'
         }
     });
+
+    const fetchEndTime = Date.now();
+    const fetchDuration = fetchEndTime - startTime;
+    console.log(`[searchFoodProducts] API fetch took ${fetchDuration} ms. Status: ${response.status}`);
 
     if (!response.ok) {
       console.error('Open Food Facts API request failed:', response.status, response.statusText);
@@ -97,11 +103,17 @@ export async function searchFoodProducts(
     }
 
     const data = await response.json();
+    const jsonParseEndTime = Date.now();
+    const jsonParseDuration = jsonParseEndTime - fetchEndTime;
+    console.log(`[searchFoodProducts] JSON parsing took ${jsonParseDuration} ms.`);
+    console.log(`[searchFoodProducts] Total API + JSON parsing time: ${fetchDuration + jsonParseDuration} ms.`);
+
 
     if (!data.products || !Array.isArray(data.products) || data.products.length === 0) {
       return { products: [], error: `No products found for "${input.foodName}" from the API.` };
     }
 
+    const processingStartTime = Date.now();
     const tempResults: TempProductSearchResultItem[] = [];
     const lowerFoodNameQuery = input.foodName.toLowerCase();
 
@@ -110,7 +122,6 @@ export async function searchFoodProducts(
         return; 
       }
 
-      // 1. Filter by calorie information (must exist)
       const calories = getNutrient(p.nutriments, 'energy-kcal_100g');
       if (calories === null) {
         return; 
@@ -119,30 +130,21 @@ export async function searchFoodProducts(
       const originalProductName = p.product_name || p.product_name_en || p.generic_name || "";
       const lowerProductName = originalProductName.toLowerCase();
       
-      // Basic relevance: product name must contain the search query
       if (!originalProductName || !lowerProductName.includes(lowerFoodNameQuery)) {
         return; 
       }
       
-      // 2. Filter by ingredient count (max 5)
       const numIngredients = p.ingredients_n;
       if (typeof numIngredients === 'number' && numIngredients > 5) {
         return;
       }
-      // Fallback: if ingredients_n not present, check length of ingredients_text if available (approximate)
-      // This is a rough heuristic as ingredients_text can be long for other reasons.
-      // else if (!numIngredients && p.ingredients_text_en && p.ingredients_text_en.split(',').length > 7) { // Example: 7 as a slightly higher threshold for text
-      //   return;
-      // }
 
-
-      // 3. Filter by brand names (exclude common fast-food/restaurant brands)
       const productBrands = p.brands;
       if (productBrands && typeof productBrands === 'string') {
         const lowerProductBrands = productBrands.toLowerCase();
         for (const excludedBrand of EXCLUDED_BRAND_KEYWORDS) {
           if (lowerProductBrands.includes(excludedBrand)) {
-            return; // Exclude this product
+            return; 
           }
         }
       }
@@ -184,7 +186,7 @@ export async function searchFoodProducts(
         id: p.code.toString(),
         displayName: displayName,
         nutritionData: {
-          calories, // Already checked not null
+          calories, 
           fat,
           healthyFats: calculatedHealthyFats,
           unhealthyFats: calculatedUnhealthyFats,
@@ -203,15 +205,18 @@ export async function searchFoodProducts(
         if (a._sortPriority !== b._sortPriority) {
             return a._sortPriority - b._sortPriority;
         }
-        return a._apiPopularityIndex - b._apiPopularityIndex; // Tie-break with original API order (within the filtered results)
+        return a._apiPopularityIndex - b._apiPopularityIndex; 
     });
     
     const finalResults: ProductSearchResultItem[] = tempResults.map(item => ({
         id: item.id,
         displayName: item.displayName,
         nutritionData: item.nutritionData,
-    })).slice(0, 20); // Limit final results to a manageable number, e.g., 20
+    })).slice(0, 20);
 
+
+    const processingEndTime = Date.now();
+    console.log(`[searchFoodProducts] Data processing (filtering, sorting) took ${processingEndTime - processingStartTime} ms.`);
 
     if (finalResults.length === 0) {
         return { products: [], error: `No products matching your criteria were found for "${input.foodName}" after filtering.` };
