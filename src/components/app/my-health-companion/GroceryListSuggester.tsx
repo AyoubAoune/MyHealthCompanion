@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppContext } from "./AppContext";
 import { 
   suggestGroceryList, 
@@ -27,10 +27,19 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
   "vegetables": Carrot,
   "proteins": Fish,
   "lean proteins & plant-based alternatives": Fish,
+  "dairy & alternatives": () => <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M15.025 7.025H8.975A.975.975 0 0 0 8 8v10.025c0 .525.425.95.95.95h6.05c.525 0 .975-.425.975-.95V8c0-.55-.45-.975-.975-.975M12 2a1 1 0 0 0-1 1v2h2V3a1 1 0 0 0-1-1m-5 1h2V2a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v1zm10 0h2V2a1 1 0 0 0-1-1h-1a1 1 0 0 0 0 2m-2.5 12.75h-1.1v-4.6h1.1zm0-5.625h-1.1v-1.1h1.1zm0-2.125h-1.1v-1.1h1.1zm-2.375 0h-1.1v-1.1h1.1z"/></svg>, // Example inline SVG
+  "pantry staples": ShoppingCart,
+  "whole grains & legumes": () => <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M19.88 8.28L12.07 1.7c-.8-.72-2.13-.72-2.93 0L1.32 8.28C.42 9 .32 10.32 1.05 11.2A5.493 5.493 0 0 1 4.8 12.9c0 .7.13 1.38.36 2.03L3.9 20.1c-.1.68.38 1.32 1.06 1.43c.68.1 1.32-.38 1.42-1.06l1.1-6.92c.3-.12.6-.26.9-.42l.9 6.92c.1.68.75 1.17 1.42 1.06c.68-.1 1.16-.75 1.06-1.43l-1.26-7.57c1.31-.72 2.24-2.02 2.24-3.48c0-.7-.13-1.38-.36-2.03L16.4 19c-.1.68.38 1.32 1.06 1.43c.68.1 1.32-.38 1.42-1.06l.87-6.55c2.17-.36 3.65-2.22 3.17-4.32c-.2-.9-.8-1.58-1.56-1.97M6.83 11.42c-.6-.28-1.12-.68-1.54-1.17c-.52-.6-.46-1.5.14-2.02l6.82-6c.3-.27.79-.27 1.1 0l6.8 6c.6.52.66 1.42.14 2.02c-.42.5-1.17.94-2.08 1.17c-.46.1-.9.16-1.32.16c-.2 0-.4-.02-.6-.05c-.6-.1-1.12-.42-1.52-.87L12.8 7.8c-.4-.48-1.18-.48-1.58 0l-1.95 2.7c-.4.45-.92.77-1.52.87c-.2.03-.4.05-.6.05c-.2 0-.4-.02-.52-.05"/></svg>, // Example inline SVG for whole grains
+  "healthy fats & pantry staples": ShoppingCart,
   // Add more mappings as needed
 };
 
-export function GroceryListSuggester() {
+interface GroceryListSuggesterProps {
+  draftItemsFromMeals: string[];
+  onClearDraftItems: () => void;
+}
+
+export function GroceryListSuggester({ draftItemsFromMeals, onClearDraftItems }: GroceryListSuggesterProps) {
   const { dailyLogs } = useAppContext();
   const { toast } = useToast();
 
@@ -43,7 +52,6 @@ export function GroceryListSuggester() {
     setIsLoading(true);
     setSuggestedGroceryList(null);
 
-    // Get unique food names from the last 14 days of logs, up to 30 items
     const last14DaysDates = getLastNDaysFormatted(14);
     const recentFoodEntries: string[] = [];
     const seenFoodNames = new Set<string>();
@@ -60,9 +68,17 @@ export function GroceryListSuggester() {
       }
     });
     
+    let combinedPreferences = customPreferences.trim();
+    if (draftItemsFromMeals.length > 0) {
+      const draftItemsString = `Consider these items I've picked from meal suggestions: ${draftItemsFromMeals.join(', ')}.`;
+      combinedPreferences = combinedPreferences 
+        ? `${draftItemsString} Also, ${combinedPreferences}`
+        : draftItemsString;
+    }
+    
     const submitInput: SuggestGroceryListInput = {
       loggedFoodItems: recentFoodEntries,
-      customPreferences: customPreferences.trim() === "" ? undefined : customPreferences,
+      customPreferences: combinedPreferences === "" ? undefined : combinedPreferences,
     };
 
     try {
@@ -73,6 +89,7 @@ export function GroceryListSuggester() {
           title: "Grocery List Generated!",
           description: "Here's a healthy shopping list for you.",
         });
+        onClearDraftItems(); // Clear draft items after successful generation
       } else {
         setSuggestedGroceryList([]); 
         toast({
@@ -102,7 +119,7 @@ export function GroceryListSuggester() {
             <CardTitle className="text-xl">AI Grocery List Helper</CardTitle>
             <ShoppingCart className="h-6 w-6 text-primary" />
           </div>
-          <CardDescription>Get AI-powered suggestions for your next healthy grocery trip, inspired by your logs.</CardDescription>
+          <CardDescription>Get AI-powered suggestions for your next healthy grocery trip, inspired by your logs and choices.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
           <CardContent className="space-y-4 flex-grow">
@@ -116,7 +133,7 @@ export function GroceryListSuggester() {
                 rows={2}
               />
                <p className="text-xs text-muted-foreground mt-1">
-                The AI will also consider your recently logged foods to understand your general eating habits.
+                The AI will also consider your recently logged foods and items you added from meal suggestions.
               </p>
             </div>
           </CardContent>

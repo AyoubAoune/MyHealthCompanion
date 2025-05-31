@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Sparkles, Loader2, Salad } from "lucide-react";
+import { Lightbulb, Sparkles, Loader2, Salad, ListPlus, ShoppingBasket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const mealTimes = [
   "Breakfast",
@@ -21,7 +22,11 @@ const mealTimes = [
   "Late Snack",
 ];
 
-export function MealPreferencesAndSuggestions() {
+interface MealPreferencesAndSuggestionsProps {
+  onAddIngredientsToDraft: (ingredients: string[]) => void;
+}
+
+export function MealPreferencesAndSuggestions({ onAddIngredientsToDraft }: MealPreferencesAndSuggestionsProps) {
   const { toast } = useToast();
 
   const [timeOfDay, setTimeOfDay] = useState<string>(mealTimes[0]);
@@ -83,6 +88,18 @@ export function MealPreferencesAndSuggestions() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddIngredientsClick = (ingredients?: string[]) => {
+    if (ingredients && ingredients.length > 0) {
+      onAddIngredientsToDraft(ingredients);
+    } else {
+      toast({
+        title: "No Ingredients",
+        description: "This meal suggestion does not have a list of ingredients to add.",
+        variant: "default"
+      })
     }
   };
 
@@ -163,21 +180,48 @@ export function MealPreferencesAndSuggestions() {
               <Salad className="mr-2 h-5 w-5" />
               Your Meal Suggestions for {timeOfDay}
             </h2>
-            {suggestedMeals.map((meal, index) => (
-              <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-base">{meal.name}</CardTitle>
-                  {meal.calories && (
-                    <CardDescription className="text-xs text-accent-foreground font-medium">
-                      {meal.calories}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground">{meal.description}</p>
-                </CardContent>
-              </Card>
-            ))}
+            <ScrollArea className="max-h-96"> {/* Added ScrollArea */}
+              <div className="space-y-3 pr-3"> {/* Added pr-3 for scrollbar spacing */}
+                {suggestedMeals.map((meal, index) => (
+                  <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{meal.name}</CardTitle>
+                      {meal.calories && (
+                        <CardDescription className="text-xs text-accent-foreground font-medium">
+                          {meal.calories}
+                        </CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent className="pb-3 space-y-2">
+                      <p className="text-xs text-muted-foreground">{meal.description}</p>
+                      {meal.ingredients && meal.ingredients.length > 0 && (
+                        <div>
+                          <h4 className="text-xs font-semibold text-secondary-foreground mb-1">Key Ingredients:</h4>
+                          <ul className="list-disc list-inside pl-2 space-y-0.5">
+                            {meal.ingredients.map((ingredient, i) => (
+                              <li key={i} className="text-xs text-muted-foreground">{ingredient}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                    {meal.ingredients && meal.ingredients.length > 0 && (
+                      <CardFooter className="pt-0 pb-3">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full text-xs"
+                          onClick={() => handleAddIngredientsClick(meal.ingredients)}
+                        >
+                          <ListPlus className="mr-2 h-3 w-3" />
+                          Add Ingredients to Draft List
+                        </Button>
+                      </CardFooter>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
         </>
       )}

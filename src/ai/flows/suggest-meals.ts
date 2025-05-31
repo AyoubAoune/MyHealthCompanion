@@ -36,6 +36,7 @@ const MealItemSchema = z.object({
   name: z.string().describe('The name or title of the meal suggestion. Example: "Apple slices with 2 tablespoons of peanut butter"'),
   description: z.string().describe('A brief description of the meal, including key ingredients or benefits. Example: "A classic combination providing fiber, healthy fats, and some protein."'),
   calories: z.string().describe('Approximate calorie count for the meal as a string. Example: "Approximately 190 calories" or "About 200 kcal"'),
+  ingredients: z.array(z.string()).optional().describe('A list of key ingredients needed for this meal. Example: ["Apple", "Peanut butter", "Cinnamon"]')
 });
 export type MealItem = z.infer<typeof MealItemSchema>;
 
@@ -70,6 +71,7 @@ Each object in the "mealSuggestions" array MUST represent a single meal and have
 - "name": string (The name or title of the meal suggestion. e.g., "Apple slices with 2 tablespoons of peanut butter")
 - "description": string (A brief description of the meal, including key ingredients or benefits. e.g., "A classic combination providing fiber, healthy fats, and some protein.")
 - "calories": string (Approximate calorie count for the meal, as a string. e.g., "Approximately 190 calories")
+- "ingredients": array of strings (Optional. A list of 3-5 key ingredients for the meal. e.g., ["Apple", "Peanut Butter"])
 
 Do not include any introductory text, numbering, or any other text outside of the main JSON object.
 
@@ -77,14 +79,16 @@ Example of the exact output format:
 {
   "mealSuggestions": [
     {
-      "name": "Greek yogurt with berries",
-      "description": "A 5.3-ounce container of non-fat Greek yogurt (about 100 calories) topped with 1/2 cup of mixed berries (about 40 calories). This snack is high in protein and antioxidants.",
-      "calories": "Approximately 140 calories"
+      "name": "Greek yogurt with berries and nuts",
+      "description": "A 5.3-ounce container of non-fat Greek yogurt (about 100 calories) topped with 1/2 cup of mixed berries (about 40 calories) and a tablespoon of almonds (about 50 calories). This snack is high in protein, antioxidants, and healthy fats.",
+      "calories": "Approximately 190 calories",
+      "ingredients": ["Non-fat Greek yogurt", "Mixed berries", "Almonds"]
     },
     {
-      "name": "Hard-boiled egg",
-      "description": "One large hard-boiled egg is a protein-packed snack.",
-      "calories": "Approximately 78 calories"
+      "name": "Hard-boiled egg and a piece of fruit",
+      "description": "One large hard-boiled egg is a protein-packed snack, paired with a piece of fruit like an orange for vitamin C.",
+      "calories": "Approximately 150 calories",
+      "ingredients": ["Large egg", "Orange"]
     }
   ]
 }
