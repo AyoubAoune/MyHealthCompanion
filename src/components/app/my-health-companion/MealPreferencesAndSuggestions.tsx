@@ -175,13 +175,13 @@ export function MealPreferencesAndSuggestions({ onAddIngredientsToDraft }: MealP
       {suggestedMeals && suggestedMeals.length > 0 && (
         <>
           <Separator className="my-4" />
-          <div className="space-y-4 flex-shrink-0">
+          <div className="flex-1 min-h-0 space-y-4"> {/* MODIFIED: Was space-y-4 flex-shrink-0 */}
             <h2 className="text-lg font-semibold text-primary flex items-center">
               <Salad className="mr-2 h-5 w-5" />
               Your Meal Suggestions for {timeOfDay}
             </h2>
-            <ScrollArea className="max-h-96"> {/* Added ScrollArea */}
-              <div className="space-y-3 pr-3"> {/* Added pr-3 for scrollbar spacing */}
+            <ScrollArea className="max-h-96">
+              <div className="space-y-3 pr-3">
                 {suggestedMeals.map((meal, index) => (
                   <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
                     <CardHeader className="pb-2">
