@@ -23,7 +23,7 @@ export function RewardsCard() {
     } else {
       toast({
         title: "Not Enough Points",
-        description: `You need ${prize.cost} points to claim ${prize.name}. You have ${userSettings.totalRewardPoints}.`,
+        description: `You need ${prize.cost} points to claim "${prize.name}". You have ${userSettings.totalRewardPoints}.`,
         variant: "destructive",
       });
     }
@@ -70,7 +70,7 @@ export function RewardsCard() {
           <ScrollArea className="max-h-80 pr-3">
             <div className="space-y-4">
               {PRIZES.map((prize) => {
-                const PrizeIcon = prize.icon || Gift;
+                const PrizeIcon = prize.icon || Gift; // Fallback icon
                 const canClaim = userSettings.totalRewardPoints >= prize.cost;
                 return (
                   <Card key={prize.id} className="bg-card/60 hover:shadow-md transition-shadow">
@@ -89,7 +89,14 @@ export function RewardsCard() {
                       <p className="text-xs text-muted-foreground">{prize.description}</p>
                     </CardContent>
                     <CardFooter>
-                      <AlertDialog open={selectedPrize?.id === prize.id} onOpenChange={(isOpen) => !isOpen && setSelectedPrize(null)}>
+                      {/* 
+                        The AlertDialog needs to be controlled by a unique open state per prize,
+                        or we manage a single selectedPrize and only render one AlertDialog.
+                        The latter is simpler. `selectedPrize?.id === prize.id` controls which dialog is open.
+                      */}
+                      <AlertDialog open={selectedPrize?.id === prize.id} onOpenChange={(isOpen) => {
+                        if (!isOpen) setSelectedPrize(null); // Close if dialog explicitly closed
+                      }}>
                         <AlertDialogTrigger asChild>
                           <Button
                             onClick={() => handleClaimAttempt(prize)}
@@ -100,18 +107,28 @@ export function RewardsCard() {
                             Claim Reward
                           </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Confirm Claim</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to spend {selectedPrize?.cost} points to claim "{selectedPrize?.name}"?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setSelectedPrize(null)}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleConfirmClaim}>Confirm</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
+                        {/* 
+                          Conditionally render DialogContent ONLY if this prize is selected, 
+                          to avoid issues with multiple dialogs trying to use the same state.
+                          Alternatively, have only ONE AlertDialog outside the map, and its content
+                          is driven by `selectedPrize`. The current approach of conditional open
+                          is fine as long as `selectedPrize` correctly identifies which dialog's trigger was clicked.
+                        */}
+                        {selectedPrize?.id === prize.id && (
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirm Claim</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to spend {selectedPrize?.cost} points to claim "{selectedPrize?.name}"?
+                                This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => setSelectedPrize(null)}>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleConfirmClaim}>Confirm</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        )}
                       </AlertDialog>
                     </CardFooter>
                   </Card>

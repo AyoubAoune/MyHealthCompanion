@@ -174,3 +174,4 @@ export const PRIZES: Prize[] = [
     icon: CalendarCheck2,
   },
 ];
+
