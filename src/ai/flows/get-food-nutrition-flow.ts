@@ -53,16 +53,16 @@ interface TempProductSearchResultItem extends ProductSearchResultItem {
 
 // Nutrient IDs from USDA FoodData Central
 const NUTRIENT_IDS = {
-  CALORIES: 1008, // Energy in kcal
-  PROTEIN: 1003,
-  FAT: 1004, // Total lipid (fat)
-  CARBS: 1005, // Carbohydrate, by difference
-  FIBER: 1079, // Fiber, total dietary
-  SUGARS: 2000, // Sugars, total including NLEA (this is a common one, matches `SUGAR.added` in some contexts, but often the main one)
-  SATURATED_FAT: 1258, // Fatty acids, total saturated
-  MONOUNSATURATED_FAT: 1292, // Fatty acids, total monounsaturated
-  POLYUNSATURATED_FAT: 1293, // Fatty acids, total polyunsaturated
-  TRANS_FAT: 1257, // Fatty acids, total trans
+  CALORIES: 1008, // Energy in kcal (Corresponds to nutrientNumber "208")
+  PROTEIN: 1003,  // (Corresponds to nutrientNumber "203")
+  FAT: 1004,      // Total lipid (fat) (Corresponds to nutrientNumber "204")
+  CARBS: 1005,    // Carbohydrate, by difference (Corresponds to nutrientNumber "205")
+  FIBER: 1079,    // Fiber, total dietary (Corresponds to nutrientNumber "291")
+  SUGARS: 2000,   // Sugars, total including NLEA (Corresponds to nutrientNumber "269") - Note: This specific ID might not always be present for all food items.
+  SATURATED_FAT: 1258, // Fatty acids, total saturated (Corresponds to nutrientNumber "606")
+  MONOUNSATURATED_FAT: 1292, // Fatty acids, total monounsaturated (Corresponds to nutrientNumber "645")
+  POLYUNSATURATED_FAT: 1293, // Fatty acids, total polyunsaturated (Corresponds to nutrientNumber "646")
+  TRANS_FAT: 1257, // Fatty acids, total trans (Corresponds to nutrientNumber "605") - Note: Trans fat data can be sparse.
 };
 
 
@@ -82,8 +82,7 @@ export async function searchFoodProducts(
   }
 
   const encodedSearchTerm = encodeURIComponent(input.foodName);
-  // Increased pageSize to get more results for better filtering potential.
-  // Using generalSearchInput for broader matching.
+  // Using generalSearchInput for broader matching. Requesting multiple data types.
   const url = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_API_KEY}&query=${encodedSearchTerm}&pageSize=50&dataType=SR%20Legacy,Foundation,Branded`;
   
   try {
@@ -116,24 +115,39 @@ export async function searchFoodProducts(
     
     const usdaFoods = data.foods || []; 
     if (!usdaFoods || usdaFoods.length === 0) {
-      return { products: [], error: `No products found for "${input.foodName}" from USDA FoodData Central.`, apiFetchDurationMs, jsonParseDurationMs };
+      console.log(`[searchFoodProducts USDA] No foods array in response or empty for term: "${input.foodName}"`);
+      return { products: [], error: `No raw food data returned from USDA for "${input.foodName}".`, apiFetchDurationMs, jsonParseDurationMs };
     }
 
     const tempResults: TempProductSearchResultItem[] = [];
     const lowerFoodNameQuery = input.foodName.toLowerCase();
 
     usdaFoods.forEach((item: any, index: number) => {
-      const getNutrientValue = (nutrientId: number): number | null => {
-        const nutrient = item.foodNutrients?.find((n: any) => n.nutrient && (n.nutrient.id === nutrientId || n.nutrientId === nutrientId || n.nutrientNumber == nutrientId.toString() ));
-        // For Energy (Calories), USDA API might use unit "kJ" sometimes, ensure "kcal" or convert.
-        // For this version, assuming 'kcal' is directly available or primary.
-        // The 'amount' field is new in FDC API v1 for some nutrient objects
-        const value = nutrient ? (nutrient.value ?? nutrient.amount) : undefined; 
-        return (value !== undefined && !isNaN(parseFloat(value))) ? parseFloat(value) : null;
+      const getNutrientValue = (nutrientIdToFind: number): number | null => {
+        const nutrient = item.foodNutrients?.find((n: any) => {
+          if (n.nutrientId === nutrientIdToFind) return true; // e.g. 1008
+          if (n.nutrient && n.nutrient.id === nutrientIdToFind) return true; // Check nested structure if present
+          // nutrientNumber is a string in API response (e.g. "208" for Calories), nutrientIdToFind is number (e.g. 1008)
+          // So direct comparison n.nutrientNumber == nutrientIdToFind or n.nutrientNumber == nutrientIdToFind.toString() is not what we want for mapping.
+          // We map our internal NUTRIENT_IDS (which are FDC nutrient IDs) to the ones in the response.
+          return false;
+        });
+        
+        const value = nutrient ? (nutrient.value ?? nutrient.amount) : undefined;
+        if (value !== undefined && !isNaN(parseFloat(value))) {
+          let numericValue = parseFloat(value);
+          // Convert kJ to kcal for Calories if necessary
+          if (nutrientIdToFind === NUTRIENT_IDS.CALORIES && nutrient.unitName === 'KJ') {
+            numericValue = numericValue / 4.184;
+          }
+          return numericValue;
+        }
+        return null;
       };
 
       const calories = getNutrientValue(NUTRIENT_IDS.CALORIES);
       if (calories === null || calories <= 0) {
+        // console.log(`[searchFoodProducts USDA] Skipping item "${item.description}" due to missing or zero calories.`);
         return; // Skip if no valid calorie data
       }
 
@@ -181,8 +195,12 @@ export async function searchFoodProducts(
       } else if (lowerProductName.includes(lowerFoodNameQuery)) {
         sortPriority = 2; // Contains query
       } else {
-        // This case should ideally not happen if USDA search is good, but as a fallback
-        if (!originalProductName.toLowerCase().includes(lowerFoodNameQuery)) return; 
+        // This case should ideally not happen if USDA search is good & item.description contains the query,
+        // but added as a fallback. Check if item.description actually contains the query term if we reach here.
+        if (!originalProductName.toLowerCase().includes(lowerFoodNameQuery)) {
+            // console.log(`[searchFoodProducts USDA] Skipping item "${originalProductName}" as it doesn't include query "${lowerFoodNameQuery}" after primary sort checks.`);
+            return; 
+        }
         sortPriority = 3; 
       }
       
@@ -199,8 +217,6 @@ export async function searchFoodProducts(
       if (a._sortPriority !== b._sortPriority) {
         return a._sortPriority - b._sortPriority;
       }
-      // For items with the same sort priority, attempt to use their original index from the API
-      // as a tie-breaker, assuming USDA already sorts by some relevance.
       return a._apiOriginalIndex - b._apiOriginalIndex; 
     });
     
@@ -214,10 +230,10 @@ export async function searchFoodProducts(
 
     const processingEndTime = Date.now();
     processingDurationMs = processingEndTime - processingStartTime;
-    console.log(`[searchFoodProducts USDA] Data processing (filtering, mapping, sorting) took ${processingDurationMs} ms.`);
+    console.log(`[searchFoodProducts USDA] Data processing (filtering, mapping, sorting) took ${processingDurationMs} ms. Found ${finalResults.length} suitable products.`);
 
     if (finalResults.length === 0) {
-        return { products: [], error: `No suitable products found for "${input.foodName}" after processing USDA results. Try a broader search term.`, apiFetchDurationMs, jsonParseDurationMs, processingDurationMs };
+        return { products: [], error: `No products matching criteria found for "${input.foodName}" after processing USDA results. Try a broader search term or check if items had calorie data.`, apiFetchDurationMs, jsonParseDurationMs, processingDurationMs };
     }
 
     return { products: finalResults, apiFetchDurationMs, jsonParseDurationMs, processingDurationMs };
