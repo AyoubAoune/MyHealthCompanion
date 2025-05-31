@@ -72,13 +72,21 @@ export async function searchFoodProducts(
   // We request nutrition-type=logging to get detailed nutrients per 100g.
   const url = `https://api.edamam.com/api/food-database/v2/parser?app_id=${EDAMAM_APP_ID}&app_key=${EDAMAM_APP_KEY}&ingr=${encodedSearchTerm}&nutrition-type=logging&category=generic-foods&category=packaged-foods`;
   
+  // For Edamam API, a unique user ID is required for some plans/endpoints.
+  // In a real app, this would be a hashed version of your app's internal user ID.
+  // For now, using a generic one.
+  const edamamUserId = "myhealthcompanion-user-001";
+
   try {
     const startTime = Date.now();
     console.log(`[searchFoodProducts Edamam] Fetching (term: "${input.foodName}"): ${url.replace(EDAMAM_APP_KEY, 'EDAMAM_APP_KEY_REDACTED')}`);
     
     const response = await fetch(url, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' }
+      headers: { 
+        'Accept': 'application/json',
+        'Edamam-Account-User': edamamUserId 
+      }
     });
     
     const fetchEndTime = Date.now();
@@ -119,9 +127,11 @@ export async function searchFoodProducts(
       const lowerProductName = originalProductName.toLowerCase();
 
       // Ensure product name contains the search query (Edamam usually does this, but good to double check)
-      if (!lowerProductName.includes(lowerFoodNameQuery)) {
-          return;
-      }
+      // This was more relevant for OpenFoodFacts. Edamam's 'hints' are usually on point.
+      // If we want stricter "contains" matching, we can re-enable this.
+      // if (!lowerProductName.includes(lowerFoodNameQuery)) {
+      //     return;
+      // }
       
       const nutrients = food.nutrients;
       const getNutrient = (key: string): number | null => {
@@ -161,8 +171,10 @@ export async function searchFoodProducts(
         sortPriority = 0; // Exact match
       } else if (lowerProductName.startsWith(lowerFoodNameQuery)) {
         sortPriority = 1; // Starts with query
-      } else {
+      } else if (lowerProductName.includes(lowerFoodNameQuery)) { // Keep general contains for broader results from Edamam
         sortPriority = 2; // Contains query
+      } else {
+        return; // If it doesn't even contain the query, skip it
       }
       
       tempResults.push({
