@@ -8,14 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Trophy, Sparkles, Gift } from "lucide-react";
-import { PRIZES, type Prize } from "./types";
+import { PRIZES, type Prize } from "./types"; // Ensure this path is correct and PRIZES is exported
 import { useToast } from "@/hooks/use-toast";
-import { ScrollArea } from '@/components/ui/scroll-area'; // Import ScrollArea
+// import { ScrollArea } from '@/components/ui/scroll-area'; // Temporarily remove for diagnostics
 
 export function RewardsCard() {
   const { userSettings, claimReward } = useAppContext();
   const { toast } = useToast();
   const [selectedPrize, setSelectedPrize] = useState<Prize | null>(null);
+
+  // Log the PRIZES array to the console when the component renders
+  console.log('PRIZES in RewardsCard:', JSON.stringify(PRIZES, null, 2));
 
   const handleClaimAttempt = (prize: Prize) => {
     if (userSettings.totalRewardPoints >= prize.cost) {
@@ -39,9 +42,10 @@ export function RewardsCard() {
           className: "bg-accent text-accent-foreground",
         });
       } else {
+        // This case should ideally be less common if button is disabled, but good for safety
         toast({
           title: "Claim Failed",
-          description: "Could not claim the reward. Please try again.",
+          description: "Could not claim the reward. This might be due to insufficient points or an unexpected error.",
           variant: "destructive",
         });
       }
@@ -65,8 +69,8 @@ export function RewardsCard() {
         <CardDescription>Complete daily habits to earn points and claim awesome prizes!</CardDescription>
       </CardHeader>
       <CardContent>
-        {PRIZES.length > 0 ? (
-          <ScrollArea className="max-h-80 pr-3"> {/* Added ScrollArea with max-h and padding for scrollbar */}
+        {PRIZES && PRIZES.length > 0 ? (
+          // <ScrollArea className="max-h-80 pr-3"> {/* Temporarily removed ScrollArea */}
             <div className="space-y-4">
               {PRIZES.map((prize) => {
                 const PrizeIcon = prize.icon || Gift; 
@@ -88,9 +92,14 @@ export function RewardsCard() {
                       <p className="text-xs text-muted-foreground">{prize.description}</p>
                     </CardContent>
                     <CardFooter>
-                      <AlertDialog open={selectedPrize?.id === prize.id} onOpenChange={(isOpen) => {
-                        if (!isOpen) setSelectedPrize(null); 
-                      }}>
+                      <AlertDialog 
+                        open={selectedPrize?.id === prize.id} 
+                        onOpenChange={(isOpen) => {
+                          if (!isOpen && selectedPrize?.id === prize.id) {
+                             setSelectedPrize(null); // Only close if it's this prize's dialog
+                          }
+                        }}
+                      >
                         <AlertDialogTrigger asChild>
                           <Button
                             onClick={() => handleClaimAttempt(prize)}
@@ -101,6 +110,11 @@ export function RewardsCard() {
                             Claim Reward
                           </Button>
                         </AlertDialogTrigger>
+                        {/* 
+                          Conditionally render DialogContent only if selectedPrize matches.
+                          This ensures only one dialog's content is in the DOM if needed, 
+                          though `open` prop should control visibility.
+                        */}
                         {selectedPrize?.id === prize.id && (
                           <AlertDialogContent>
                             <AlertDialogHeader>
@@ -122,7 +136,7 @@ export function RewardsCard() {
                 );
               })}
             </div>
-          </ScrollArea>
+          // </ScrollArea>  /* Temporarily removed ScrollArea */
         ) : (
           <p className="text-sm text-muted-foreground">No prizes available at the moment. Check back later!</p>
         )}
