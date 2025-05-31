@@ -21,7 +21,8 @@ interface AppContextType {
   logWeight: (weight: number) => void;
   logWaistSize: (waistCm: number) => void;
   toggleChecklistItem: (itemId: string) => void;
-  claimReward: (prizeCost: number) => boolean; // New function for rewards
+  claimReward: (prizeCost: number) => boolean;
+  resetAllData: () => void; // New function for resetting data
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -184,7 +185,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { ...prevChecklist, items: updatedItems };
     });
 
-    // Update reward points based on the change
     if (itemChangedToCompleted) {
       updateUserSettings(prevSettings => ({
         ...prevSettings,
@@ -209,6 +209,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return false;
   }, [userSettings.totalRewardPoints, updateUserSettings]);
 
+  const resetAllData = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      const keysToRemove = [
+        "myhealthcompanion-settings",
+        "myhealthcompanion-dailylogs",
+        "myhealthcompanion-weightlogs",
+        "myhealthcompanion-bodymeasurements",
+      ];
+      keysToRemove.forEach(key => window.localStorage.removeItem(key));
+
+      Object.keys(window.localStorage).forEach(key => {
+        if (key.startsWith("myhealthcompanion-checklist-")) {
+          window.localStorage.removeItem(key);
+        }
+      });
+      
+      window.location.reload();
+    }
+  }, []);
+
   const contextValue = {
     userSettings,
     dailyLogs,
@@ -222,7 +242,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     logWeight,
     logWaistSize,
     toggleChecklistItem,
-    claimReward, // Expose new function
+    claimReward,
+    resetAllData, // Expose new function
   };
 
   return (
