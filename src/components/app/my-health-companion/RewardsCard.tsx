@@ -8,17 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Trophy, Sparkles, Gift } from "lucide-react";
-import { PRIZES, type Prize } from "./types"; // Ensure this path is correct and PRIZES is exported
+import { PRIZES, type Prize } from "./types"; 
 import { useToast } from "@/hooks/use-toast";
-// import { ScrollArea } from '@/components/ui/scroll-area'; // Temporarily remove for diagnostics
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function RewardsCard() {
   const { userSettings, claimReward } = useAppContext();
   const { toast } = useToast();
   const [selectedPrize, setSelectedPrize] = useState<Prize | null>(null);
-
-  // Log the PRIZES array to the console when the component renders
-  console.log('PRIZES in RewardsCard:', JSON.stringify(PRIZES, null, 2));
 
   const handleClaimAttempt = (prize: Prize) => {
     if (userSettings.totalRewardPoints >= prize.cost) {
@@ -42,7 +39,6 @@ export function RewardsCard() {
           className: "bg-accent text-accent-foreground",
         });
       } else {
-        // This case should ideally be less common if button is disabled, but good for safety
         toast({
           title: "Claim Failed",
           description: "Could not claim the reward. This might be due to insufficient points or an unexpected error.",
@@ -70,7 +66,7 @@ export function RewardsCard() {
       </CardHeader>
       <CardContent>
         {PRIZES && PRIZES.length > 0 ? (
-          // <ScrollArea className="max-h-80 pr-3"> {/* Temporarily removed ScrollArea */}
+          <ScrollArea className="max-h-80 pr-3">
             <div className="space-y-4">
               {PRIZES.map((prize) => {
                 const PrizeIcon = prize.icon || Gift; 
@@ -96,7 +92,7 @@ export function RewardsCard() {
                         open={selectedPrize?.id === prize.id} 
                         onOpenChange={(isOpen) => {
                           if (!isOpen && selectedPrize?.id === prize.id) {
-                             setSelectedPrize(null); // Only close if it's this prize's dialog
+                             setSelectedPrize(null);
                           }
                         }}
                       >
@@ -110,11 +106,6 @@ export function RewardsCard() {
                             Claim Reward
                           </Button>
                         </AlertDialogTrigger>
-                        {/* 
-                          Conditionally render DialogContent only if selectedPrize matches.
-                          This ensures only one dialog's content is in the DOM if needed, 
-                          though `open` prop should control visibility.
-                        */}
                         {selectedPrize?.id === prize.id && (
                           <AlertDialogContent>
                             <AlertDialogHeader>
@@ -136,7 +127,7 @@ export function RewardsCard() {
                 );
               })}
             </div>
-          // </ScrollArea>  /* Temporarily removed ScrollArea */
+          </ScrollArea>
         ) : (
           <p className="text-sm text-muted-foreground">No prizes available at the moment. Check back later!</p>
         )}
