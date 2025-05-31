@@ -69,7 +69,13 @@ const EXCLUDED_BRAND_KEYWORDS: string[] = [
   "costco", "nestle", "unilever", "pepsi", "coca-cola", "kraft",
   "general mills", "kellogg's", "monster energy", "red bull", "carl's jr",
   "dairy queen", "tim hortons", "popeyes", "chipotle", "panda express",
-  "heinz", "mars", "mondelez", "danone", "ferrero", "dr pepper snapple"
+  "heinz", "mars", "mondelez", "danone", "ferrero", "dr pepper snapple",
+  "frito-lay", "cadbury", "lindt", "haribo", "ritter sport", "milka",
+  "pringles", "oreo", "lays", "doritos", "cheetos", "tostitos",
+  "ben & jerry's", "haagen-dazs", "magnum", "kitkat", "snickers", "twix",
+  "baskin robbins", "cold stone creamery", "ihop", "denny's", "applebee's",
+  "chili's", "olive garden", "red lobster", "outback steakhouse", "tgi fridays",
+  "panera bread", "au bon pain", "pret a manger"
 ];
 
 export async function searchFoodProducts(
@@ -78,13 +84,14 @@ export async function searchFoodProducts(
   const encodedSearchTerm = encodeURIComponent(input.foodName);
   const fieldsToFetch = [
     "code", "product_name", "product_name_en", "generic_name", "brands",
-    "nutriments", "ingredients_n", "ingredients_text_en",
+    "nutriments", "ingredients_n", // ingredients_text_en can be very large, skip for now
     "energy-kcal_100g", "fat_100g", "saturated-fat_100g", "trans-fat_100g",
     "monounsaturated-fat_100g", "polyunsaturated-fat_100g",
     "carbohydrates_100g", "sugars_100g", "proteins_100g", "fiber_100g"
   ].join(',');
   
-  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=50&sort_by=popularity_key&fields=${fieldsToFetch}`;
+  const pageSize = 25; // Reduced page size
+  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=${pageSize}&sort_by=popularity_key&fields=${fieldsToFetch}`;
 
   let apiFetchDurationMs: number | undefined;
   let jsonParseDurationMs: number | undefined;
@@ -92,7 +99,7 @@ export async function searchFoodProducts(
 
   try {
     const startTime = Date.now();
-    console.log(`[searchFoodProducts] Fetching URL: ${url}`);
+    console.log(`[searchFoodProducts] Fetching (page_size: ${pageSize}, term: "${input.foodName}"): ${url}`);
 
     const response = await fetch(url, {
         method: 'GET',
@@ -117,7 +124,9 @@ export async function searchFoodProducts(
     const jsonParseEndTime = Date.now();
     jsonParseDurationMs = jsonParseEndTime - jsonParseStartTime;
     console.log(`[searchFoodProducts] JSON parsing took ${jsonParseDurationMs} ms.`);
-    console.log(`[searchFoodProducts] Total API + JSON parsing time: ${apiFetchDurationMs + jsonParseDurationMs} ms.`);
+    
+    const totalApiAndParseTime = (apiFetchDurationMs || 0) + (jsonParseDurationMs || 0);
+    console.log(`[searchFoodProducts] Total API + JSON parsing time: ${totalApiAndParseTime} ms.`);
 
 
     if (!data.products || !Array.isArray(data.products) || data.products.length === 0) {
@@ -134,14 +143,13 @@ export async function searchFoodProducts(
       }
 
       const calories = getNutrient(p.nutriments, 'energy-kcal_100g');
-      if (calories === null) {
+      if (calories === null || calories === 0) { // Exclude items with no calories or zero calories
         return; 
       }
 
       const originalProductName = p.product_name || p.product_name_en || p.generic_name || "";
       const lowerProductName = originalProductName.toLowerCase();
       
-      // Modified: Ensure product name includes the query. This was already good.
       if (!originalProductName || !lowerProductName.includes(lowerFoodNameQuery)) {
         return; 
       }
@@ -224,7 +232,7 @@ export async function searchFoodProducts(
         id: item.id,
         displayName: item.displayName,
         nutritionData: item.nutritionData,
-    })).slice(0, 20);
+    })).slice(0, 20); // Still cap final display results
 
 
     const processingEndTime = Date.now();
@@ -240,6 +248,7 @@ export async function searchFoodProducts(
   } catch (error: unknown) {
     console.error('Full error in searchFoodProducts flow:', error); 
 
+    // Improved error handling for network issues
     if (error instanceof TypeError && (error.message === 'fetch failed' || (error.cause instanceof Error && error.cause.message.includes('ECONNREFUSED')))) {
       let causeMessage = "Network request to Open Food Facts API failed.";
       if (error.cause instanceof Error) { 
@@ -250,7 +259,7 @@ export async function searchFoodProducts(
       causeMessage += " If you are running in a simulator, virtual machine, or restricted network environment, please check its network access capabilities for external APIs like world.openfoodfacts.org.";
       return { products: [], error: causeMessage, apiFetchDurationMs, jsonParseDurationMs };
     }
-
+    
     let detail = 'An unexpected error occurred while processing food data.';
     if (error instanceof Error) {
       detail = error.message;
@@ -263,3 +272,4 @@ export async function searchFoodProducts(
     return { products: [], error: `Flow Error: ${detail}`, apiFetchDurationMs, jsonParseDurationMs };
   }
 }
+
