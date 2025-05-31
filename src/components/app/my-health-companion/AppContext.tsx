@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import useLocalStorage from '@/hooks/useLocalStorage';
-import type { UserSettings, DailyLog, WeightLog, LoggedEntry, MealType, DailyChecklist, ChecklistItem } from './types';
+import type { UserSettings, DailyLog, WeightLog, BodyMeasurementLog, LoggedEntry, MealType, DailyChecklist, ChecklistItem } from './types';
 import { DEFAULT_USER_SETTINGS, DEFAULT_DAILY_LOG_BASE, DEFAULT_DAILY_CHECKLIST_ITEMS } from './types';
 import { getCurrentDateFormatted } from './date-utils';
 
@@ -12,12 +12,14 @@ interface AppContextType {
   userSettings: UserSettings;
   dailyLogs: DailyLog[];
   weightLogs: WeightLog[];
+  bodyMeasurementLogs: BodyMeasurementLog[]; // New state for body measurements
   dailyChecklist: DailyChecklist | null;
   currentDayLog: DailyLog | null;
   isLoading: boolean;
   updateUserSettings: (newSettings: Partial<UserSettings>) => void;
   logIntake: (entryData: Omit<LoggedEntry, 'id'>) => void;
   logWeight: (weight: number) => void;
+  logWaistSize: (waistCm: number) => void; // New function to log waist size
   toggleChecklistItem: (itemId: string) => void;
 }
 
@@ -26,16 +28,20 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const initialDailyLogs = useMemo(() => [], []);
   const initialWeightLogs = useMemo(() => [], []);
+  const initialBodyMeasurementLogs = useMemo(() => [], []); // Initializer for new state
   const todayStr = getCurrentDateFormatted(); // Get today's date once
 
   const [userSettings, setUserSettings] = useLocalStorage<UserSettings>("myhealthcompanion-settings", DEFAULT_USER_SETTINGS);
   const [dailyLogs, setDailyLogs] = useLocalStorage<DailyLog[]>("myhealthcompanion-dailylogs", initialDailyLogs);
   const [weightLogs, setWeightLogs] = useLocalStorage<WeightLog[]>("myhealthcompanion-weightlogs", initialWeightLogs);
+  const [bodyMeasurementLogs, setBodyMeasurementLogs] = useLocalStorage<BodyMeasurementLog[]>(
+    "myhealthcompanion-bodymeasurements", 
+    initialBodyMeasurementLogs
+  ); // New localStorage for body measurements
   
-  // For daily checklist, key includes the date for daily reset
   const [dailyChecklist, setDailyChecklist] = useLocalStorage<DailyChecklist | null>(
     `myhealthcompanion-checklist-${todayStr}`, 
-    null // Start with null, initialize in useEffect
+    null 
   );
 
   const [currentDayLog, setCurrentDayLog] = useState<DailyLog | null>(null);
@@ -47,7 +53,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoading) {
-      // Initialize or load current day's log
       const foundLog = dailyLogs.find(log => log.date === todayStr);
       let currentLogToSet: DailyLog;
       if (foundLog) {
@@ -62,16 +67,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       setCurrentDayLog(currentLogToSet);
 
-      // Initialize or load current day's checklist
       if (!dailyChecklist || dailyChecklist.date !== todayStr) {
-        // If no checklist for today, or if loaded checklist is for a past date (from stale localStorage), create a new one.
         setDailyChecklist({
           date: todayStr,
-          items: DEFAULT_DAILY_CHECKLIST_ITEMS.map(item => ({ ...item, completed: false })), // Ensure items are reset
+          items: DEFAULT_DAILY_CHECKLIST_ITEMS.map(item => ({ ...item, completed: false })),
         });
       }
     }
-  }, [dailyLogs, isLoading, todayStr, dailyChecklist, setDailyChecklist]); // Added dailyChecklist and setDailyChecklist to dependencies
+  }, [dailyLogs, isLoading, todayStr, dailyChecklist, setDailyChecklist]);
 
 
   const updateUserSettings = useCallback((newSettings: Partial<UserSettings>) => {
@@ -79,7 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [setUserSettings]);
 
   const logIntake = useCallback((entryData: Omit<LoggedEntry, 'id'>) => {
-    const currentTodayStr = getCurrentDateFormatted(); // Get fresh date in case of day change
+    const currentTodayStr = getCurrentDateFormatted();
     setDailyLogs(prevLogs => {
       const existingLogIndex = prevLogs.findIndex(log => log.date === currentTodayStr);
       let updatedLog: DailyLog;
@@ -138,6 +141,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [setWeightLogs]);
 
+  const logWaistSize = useCallback((waistCm: number) => {
+    const currentTodayStr = getCurrentDateFormatted();
+    setBodyMeasurementLogs(prevLogs => {
+      const existingLogIndex = prevLogs.findIndex(log => log.date === currentTodayStr);
+      if (existingLogIndex > -1) {
+        // Update existing log for the day, preserving other potential measurements
+        const updatedLogs = [...prevLogs];
+        updatedLogs[existingLogIndex] = { ...updatedLogs[existingLogIndex], date: currentTodayStr, waistSizeCm: waistCm };
+        return updatedLogs;
+      }
+      // Add new log for the day
+      return [...prevLogs, { date: currentTodayStr, waistSizeCm: waistCm }];
+    });
+  }, [setBodyMeasurementLogs]);
+
   const toggleChecklistItem = useCallback((itemId: string) => {
     setDailyChecklist(prevChecklist => {
       if (!prevChecklist) return null;
@@ -152,12 +170,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     userSettings,
     dailyLogs,
     weightLogs,
+    bodyMeasurementLogs, // Add to context
     dailyChecklist,
     currentDayLog,
     isLoading,
     updateUserSettings,
     logIntake,
     logWeight,
+    logWaistSize, // Add to context
     toggleChecklistItem,
   };
 

@@ -2,6 +2,7 @@
 "use client";
 
 import { WeightTrackingCard } from "@/components/app/my-health-companion/WeightTrackingCard";
+import { WaistSizeTrackingCard } from "@/components/app/my-health-companion/WaistSizeTrackingCard"; // New import
 import { WeeklyBudgetCard } from "@/components/app/my-health-companion/WeeklyBudgetCard";
 import { Last7DaysCaloriesStat } from "@/components/app/my-health-companion/Last7DaysCaloriesStat";
 import { useAppContext } from "@/components/app/my-health-companion/AppContext";
@@ -24,9 +25,10 @@ export default function StatsPage() {
           </div>
         </header>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Skeleton className="h-80 w-full rounded-lg" />
-          <Skeleton className="h-80 w-full rounded-lg" />
-          <Skeleton className="h-40 w-full rounded-lg md:col-span-2" />
+          <Skeleton className="h-80 w-full rounded-lg" /> {/* WeightTrackingCard */}
+          <Skeleton className="h-80 w-full rounded-lg" /> {/* WaistSizeTrackingCard */}
+          <Skeleton className="h-64 w-full rounded-lg" /> {/* WeeklyBudgetCard (adjust height if needed) */}
+          <Skeleton className="h-40 w-full rounded-lg md:col-span-2" /> {/* Last7DaysCaloriesStat */}
         </div>
       </div>
     );
@@ -47,6 +49,7 @@ export default function StatsPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <WeightTrackingCard />
+        <WaistSizeTrackingCard /> {/* Added new card */}
         <WeeklyBudgetCard />
         <div className="md:col-span-2">
           <Last7DaysCaloriesStat />

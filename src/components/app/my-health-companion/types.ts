@@ -118,3 +118,17 @@ export const DEFAULT_DAILY_CHECKLIST_ITEMS: ChecklistItem[] = [
   { id: 'water', text: 'Hydration Hero (Drink plenty of water)', completed: false },
   { id: 'movement', text: 'Mindful Movement Moment', completed: false },
 ];
+
+// WeightLog remains the same
+export interface WeightLog {
+  date: string; // YYYY-MM-DD
+  weight: number; // in kg
+}
+
+// New BodyMeasurementLog for waist size and potentially other measurements
+export interface BodyMeasurementLog {
+  date: string; // YYYY-MM-DD
+  waistSizeCm?: number | null;
+  // Future: hipSizeCm?: number | null;
+  // Future: neckSizeCm?: number | null;
+}
