@@ -5,12 +5,13 @@ import { useAppContext } from "@/components/app/my-health-companion/AppContext";
 import { DailyGoalsCard } from "@/components/app/my-health-companion/DailyGoalsCard";
 import { IntakeProgressCard } from "@/components/app/my-health-companion/IntakeProgressCard";
 import { WeeklyBudgetCard } from "@/components/app/my-health-companion/WeeklyBudgetCard";
+import { DailyChecklistCard } from "@/components/app/my-health-companion/DailyChecklistCard"; // Import new card
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardPage() {
-  const { userSettings, dailyLogs, currentDayLog, isLoading, updateUserSettings } = useAppContext();
+  const { userSettings, isLoading } = useAppContext(); // Removed unused variables
 
   if (isLoading) {
     return (
@@ -25,12 +26,18 @@ export default function DashboardPage() {
           </div>
         </header>
         <Separator className="my-6" />
-        <Skeleton className="h-48 w-full rounded-lg" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Skeleton className="h-64 w-full rounded-lg" />
-          <Skeleton className="h-64 w-full rounded-lg" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Column 1 Skeletons */}
+          <section className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-48 w-full rounded-lg" /> {/* DailyGoalsCard Skeleton */}
+            <Skeleton className="h-64 w-full rounded-lg" /> {/* IntakeProgressCard Skeleton */}
+            <Skeleton className="h-72 w-full rounded-lg" /> {/* DailyChecklistCard Skeleton */}
+          </section>
+          {/* Column 2 Skeletons (Weekly Budget on Desktop) */}
+          <aside className="hidden lg:block space-y-6">
+            <Skeleton className="h-64 w-full rounded-lg" /> {/* WeeklyBudgetCard Skeleton */}
+          </aside>
         </div>
-         <Skeleton className="h-64 w-full rounded-lg hidden md:block" /> {/* Weekly Budget Card for desktop */}
       </div>
     );
   }
@@ -53,23 +60,18 @@ export default function DashboardPage() {
       <Separator className="my-6" />
 
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Goals & Progress */}
+        {/* Column 1: Goals, Progress & Checklist */}
         <section className="lg:col-span-2 space-y-6">
           <DailyGoalsCard />
           <IntakeProgressCard />
+          <DailyChecklistCard /> {/* Add new card here */}
         </section>
 
         {/* Column 2: Summaries (Weekly Budget on Desktop) */}
-        {/* WeeklyBudgetCard is part of the sidebar-like column on desktop, 
-            but for mobile, it's better accessed via the Stats page or within Dashboard if space allows.
-            For this iteration, it's only visible on larger screens here.
-            Mobile users will access it via the "Statistics" tab ideally.
-        */}
         <aside className="hidden lg:block space-y-6">
            <WeeklyBudgetCard />
         </aside>
       </main>
-       {/* Footer could be here or in layout. Keeping in layout for now. */}
     </div>
   );
 }

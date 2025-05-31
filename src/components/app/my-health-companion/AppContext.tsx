@@ -4,19 +4,21 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import useLocalStorage from '@/hooks/useLocalStorage';
-import type { UserSettings, DailyLog, WeightLog, LoggedEntry, MealType } from './types';
-import { DEFAULT_USER_SETTINGS, DEFAULT_DAILY_LOG_BASE } from './types';
+import type { UserSettings, DailyLog, WeightLog, LoggedEntry, MealType, DailyChecklist, ChecklistItem } from './types';
+import { DEFAULT_USER_SETTINGS, DEFAULT_DAILY_LOG_BASE, DEFAULT_DAILY_CHECKLIST_ITEMS } from './types';
 import { getCurrentDateFormatted } from './date-utils';
 
 interface AppContextType {
   userSettings: UserSettings;
   dailyLogs: DailyLog[];
   weightLogs: WeightLog[];
+  dailyChecklist: DailyChecklist | null;
   currentDayLog: DailyLog | null;
   isLoading: boolean;
   updateUserSettings: (newSettings: Partial<UserSettings>) => void;
   logIntake: (entryData: Omit<LoggedEntry, 'id'>) => void;
   logWeight: (weight: number) => void;
+  toggleChecklistItem: (itemId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -24,10 +26,18 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const initialDailyLogs = useMemo(() => [], []);
   const initialWeightLogs = useMemo(() => [], []);
+  const todayStr = getCurrentDateFormatted(); // Get today's date once
 
   const [userSettings, setUserSettings] = useLocalStorage<UserSettings>("myhealthcompanion-settings", DEFAULT_USER_SETTINGS);
   const [dailyLogs, setDailyLogs] = useLocalStorage<DailyLog[]>("myhealthcompanion-dailylogs", initialDailyLogs);
   const [weightLogs, setWeightLogs] = useLocalStorage<WeightLog[]>("myhealthcompanion-weightlogs", initialWeightLogs);
+  
+  // For daily checklist, key includes the date for daily reset
+  const [dailyChecklist, setDailyChecklist] = useLocalStorage<DailyChecklist | null>(
+    `myhealthcompanion-checklist-${todayStr}`, 
+    null // Start with null, initialize in useEffect
+  );
+
   const [currentDayLog, setCurrentDayLog] = useState<DailyLog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,46 +47,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoading) {
-      const todayStr = getCurrentDateFormatted();
+      // Initialize or load current day's log
       const foundLog = dailyLogs.find(log => log.date === todayStr);
-      
       let currentLogToSet: DailyLog;
-
       if (foundLog) {
-        // Migration for old structure or ensure new structure is complete
-        if (!(foundLog as DailyLog).entries) { // Check if it's the old structure
-          const oldLog = foundLog as any; // Cast to access old fields
-          currentLogToSet = {
-            date: oldLog.date,
-            entries: [], // Old logs won't have individual entries
-            totalCalories: oldLog.calories || 0,
-            totalProtein: oldLog.protein || 0,
-            totalFiber: oldLog.fiber || 0,
-            totalFat: oldLog.fat || 0,
-            totalHealthyFats: oldLog.healthyFats || 0,
-            totalUnhealthyFats: oldLog.unhealthyFats || 0,
-            totalCarbs: oldLog.carbs || 0,
-            totalSugar: oldLog.sugar || 0,
-          };
-        } else {
-          // It's the new structure, ensure all total fields are present
-          currentLogToSet = {
-            ...DEFAULT_DAILY_LOG_BASE, // Provide defaults for any missing total fields
-            ...foundLog, // Spread the found log
-            date: foundLog.date, // Ensure date is explicitly set
-            entries: foundLog.entries || [], // Ensure entries is an array
-          };
-        }
-      } else {
-        // New day, new log structure
         currentLogToSet = {
-          date: todayStr,
           ...DEFAULT_DAILY_LOG_BASE,
+          ...foundLog,
+          date: foundLog.date,
+          entries: foundLog.entries || [],
         };
+      } else {
+        currentLogToSet = { date: todayStr, ...DEFAULT_DAILY_LOG_BASE };
       }
       setCurrentDayLog(currentLogToSet);
+
+      // Initialize or load current day's checklist
+      if (!dailyChecklist || dailyChecklist.date !== todayStr) {
+        // If no checklist for today, or if loaded checklist is for a past date (from stale localStorage), create a new one.
+        setDailyChecklist({
+          date: todayStr,
+          items: DEFAULT_DAILY_CHECKLIST_ITEMS.map(item => ({ ...item, completed: false })), // Ensure items are reset
+        });
+      }
     }
-  }, [dailyLogs, isLoading]);
+  }, [dailyLogs, isLoading, todayStr, dailyChecklist, setDailyChecklist]); // Added dailyChecklist and setDailyChecklist to dependencies
 
 
   const updateUserSettings = useCallback((newSettings: Partial<UserSettings>) => {
@@ -84,30 +79,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [setUserSettings]);
 
   const logIntake = useCallback((entryData: Omit<LoggedEntry, 'id'>) => {
-    const todayStr = getCurrentDateFormatted();
+    const currentTodayStr = getCurrentDateFormatted(); // Get fresh date in case of day change
     setDailyLogs(prevLogs => {
-      const existingLogIndex = prevLogs.findIndex(log => log.date === todayStr);
-      
+      const existingLogIndex = prevLogs.findIndex(log => log.date === currentTodayStr);
       let updatedLog: DailyLog;
 
       if (existingLogIndex > -1) {
         updatedLog = { ...prevLogs[existingLogIndex] };
-        if (!updatedLog.entries) { // Migration for safety, though useEffect should handle it
-            updatedLog.entries = [];
-            updatedLog.totalCalories = (updatedLog as any).calories || 0;
-            // ... copy other old total fields if necessary
-        }
       } else {
-        updatedLog = { date: todayStr, ...DEFAULT_DAILY_LOG_BASE };
+        updatedLog = { date: currentTodayStr, ...DEFAULT_DAILY_LOG_BASE };
       }
 
       const newEntry: LoggedEntry = {
         ...entryData,
-        id: Date.now().toString() + Math.random().toString(36).substring(2, 15), // More unique ID
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 15),
       };
       updatedLog.entries = [...updatedLog.entries, newEntry];
 
-      // Recalculate totals
       updatedLog.totalCalories = 0;
       updatedLog.totalProtein = 0;
       updatedLog.totalFiber = 0;
@@ -138,27 +126,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [setDailyLogs]);
 
   const logWeight = useCallback((weight: number) => {
-    const todayStr = getCurrentDateFormatted();
+    const currentTodayStr = getCurrentDateFormatted();
     setWeightLogs(prevLogs => {
-      const existingLogIndex = prevLogs.findIndex(log => log.date === todayStr);
+      const existingLogIndex = prevLogs.findIndex(log => log.date === currentTodayStr);
       if(existingLogIndex > -1) {
         const updatedLogs = [...prevLogs];
-        updatedLogs[existingLogIndex] = { date: todayStr, weight };
+        updatedLogs[existingLogIndex] = { date: currentTodayStr, weight };
         return updatedLogs;
       }
-      return [...prevLogs, { date: todayStr, weight }];
+      return [...prevLogs, { date: currentTodayStr, weight }];
     });
   }, [setWeightLogs]);
+
+  const toggleChecklistItem = useCallback((itemId: string) => {
+    setDailyChecklist(prevChecklist => {
+      if (!prevChecklist) return null;
+      const updatedItems = prevChecklist.items.map(item =>
+        item.id === itemId ? { ...item, completed: !item.completed } : item
+      );
+      return { ...prevChecklist, items: updatedItems };
+    });
+  }, [setDailyChecklist]);
 
   const contextValue = {
     userSettings,
     dailyLogs,
     weightLogs,
+    dailyChecklist,
     currentDayLog,
     isLoading,
     updateUserSettings,
     logIntake,
     logWeight,
+    toggleChecklistItem,
   };
 
   return (

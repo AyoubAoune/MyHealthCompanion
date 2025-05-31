@@ -96,3 +96,25 @@ export interface ProductSearchResultItem {
   displayName: string;
   nutritionData: BaseNutritionData;
 }
+
+// Checklist Types
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  // category: 'todo' | 'avoid'; // Future use for 'Things to Avoid'
+}
+
+export interface DailyChecklist {
+  date: string; // YYYY-MM-DD, to ensure daily reset
+  items: ChecklistItem[];
+}
+
+export const DEFAULT_DAILY_CHECKLIST_ITEMS: ChecklistItem[] = [
+  { id: 'protein', text: 'Fuel with Protein Power', completed: false },
+  { id: 'fiber', text: 'Fiber Up for Gut Health', completed: false },
+  { id: 'meals', text: 'Nourish with Regular Meals', completed: false },
+  { id: 'steps', text: 'Step into Wellness (5000+ steps)', completed: false },
+  { id: 'water', text: 'Hydration Hero (Drink plenty of water)', completed: false },
+  { id: 'movement', text: 'Mindful Movement Moment', completed: false },
+];
