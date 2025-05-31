@@ -20,8 +20,6 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientProps) {
-  console.log("[WeightTrendChartClient] Received weightLogs prop:", JSON.stringify(weightLogs));
-
   const chartData = React.useMemo(() => {
     if (!weightLogs || weightLogs.length === 0) return [];
     const processedData = weightLogs
@@ -36,7 +34,7 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
             // Ensure parseDate is robust or handle its potential errors
             dateObj = parseDate(log.date);
         } catch (e) {
-            console.warn(`[WeightTrendChartClient] Invalid date string encountered during parseDate: ${log.date}`, e);
+            // console.warn(`[WeightTrendChartClient] Invalid date string encountered during parseDate: ${log.date}`, e);
             return false;
         }
         // Check if date parsing was successful and it's a valid date
@@ -45,16 +43,16 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
         const weightValid = typeof log.weight === 'number' && !isNaN(log.weight) && isFinite(log.weight);
         
         if (!dateValid) {
-            console.warn(`[WeightTrendChartClient] Filtered out log due to invalid date object for: ${log.date}`);
+            // console.warn(`[WeightTrendChartClient] Filtered out log due to invalid date object for: ${log.date}`);
         }
         if (!weightValid) {
-            console.warn(`[WeightTrendChartClient] Filtered out log due to invalid weight: ${JSON.stringify(log)}`);
+            // console.warn(`[WeightTrendChartClient] Filtered out log due to invalid weight: ${JSON.stringify(log)}`);
         }
         return dateValid && weightValid;
       })
       .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
       
-    console.log("[WeightTrendChartClient] Computed chartData:", JSON.stringify(processedData));
+    // console.log("[WeightTrendChartClient] Computed chartData:", JSON.stringify(processedData));
     return processedData;
   }, [weightLogs]);
 
@@ -93,7 +91,7 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
             try {
               return format(parseDate(value), "MMM d");
             } catch (e) {
-              console.warn(`[WeightTrendChartClient] Error formatting date for XAxis tick: ${value}`, e);
+              // console.warn(`[WeightTrendChartClient] Error formatting date for XAxis tick: ${value}`, e);
               return value; // Fallback to raw value
             }
           }}

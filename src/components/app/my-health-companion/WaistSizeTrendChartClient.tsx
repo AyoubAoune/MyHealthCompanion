@@ -20,8 +20,6 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function WaistSizeTrendChartClient({ bodyMeasurementLogs }: WaistSizeTrendChartClientProps) {
-  console.log("[WaistSizeTrendChartClient] Received bodyMeasurementLogs prop:", JSON.stringify(bodyMeasurementLogs));
-
   const chartData = React.useMemo(() => {
     if (!bodyMeasurementLogs || bodyMeasurementLogs.length === 0) return [];
     const processedData = bodyMeasurementLogs
@@ -35,18 +33,18 @@ export function WaistSizeTrendChartClient({ bodyMeasurementLogs }: WaistSizeTren
         try {
             dateObj = parseDate(log.date);
         } catch (e) {
-            console.warn(`[WaistSizeTrendChartClient] Invalid date string encountered during parseDate: ${log.date}`, e);
+            // console.warn(`[WaistSizeTrendChartClient] Invalid date string encountered during parseDate: ${log.date}`, e);
             return false;
         }
         const dateValid = dateObj && !isNaN(dateObj.getTime());
         if (!dateValid) {
-            console.warn(`[WaistSizeTrendChartClient] Filtered out log due to invalid date object for: ${log.date}`);
+            // console.warn(`[WaistSizeTrendChartClient] Filtered out log due to invalid date object for: ${log.date}`);
         }
         return dateValid;
       })
       .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
       
-    console.log("[WaistSizeTrendChartClient] Computed chartData:", JSON.stringify(processedData));
+    // console.log("[WaistSizeTrendChartClient] Computed chartData:", JSON.stringify(processedData));
     return processedData;
   }, [bodyMeasurementLogs]);
 
@@ -85,7 +83,7 @@ export function WaistSizeTrendChartClient({ bodyMeasurementLogs }: WaistSizeTren
             try {
               return format(parseDate(value), "MMM d");
             } catch (e) {
-              console.warn(`[WaistSizeTrendChartClient] Error formatting date for XAxis tick: ${value}`, e);
+              // console.warn(`[WaistSizeTrendChartClient] Error formatting date for XAxis tick: ${value}`, e);
               return value; 
             }
           }}

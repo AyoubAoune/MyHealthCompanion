@@ -16,9 +16,6 @@ export function WeightTrackingCard() {
   const [currentWeight, setCurrentWeight] = useState("");
   const { toast } = useToast();
 
-  // Log weightLogs for debugging
-  console.log("WeightTrackingCard - weightLogs:", JSON.stringify(weightLogs, null, 2));
-
   const handleLogWeightSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const weightValue = parseFloat(currentWeight);

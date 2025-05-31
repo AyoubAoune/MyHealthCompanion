@@ -54,12 +54,6 @@ export interface DailyLog {
 }
 
 
-export interface MealSuggestionPreferences {
-  calorieLimit: number;
-  dietaryPreferences: string;
-  avoidFoods: string;
-}
-
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   name: "User",
   dailyCalorieTarget: 2000,
@@ -174,4 +168,3 @@ export const PRIZES: Prize[] = [
     icon: CalendarCheck2,
   },
 ];
-

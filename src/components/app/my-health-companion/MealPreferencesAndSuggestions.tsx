@@ -10,8 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Lightbulb, Sparkles, Loader2, Salad } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-// useAppContext is not used directly here for calorieLimit initialization anymore
-// import { useAppContext } from "./AppContext"; 
 import { Separator } from "@/components/ui/separator";
 
 const mealTimes = [
@@ -24,11 +22,9 @@ const mealTimes = [
 ];
 
 export function MealPreferencesAndSuggestions() {
-  // const { userSettings } = useAppContext(); // Not needed for calorieLimit anymore
   const { toast } = useToast();
 
   const [timeOfDay, setTimeOfDay] = useState<string>(mealTimes[0]);
-  // Set default calorie limit for this specific form to 200
   const [calorieLimit, setCalorieLimit] = useState<number>(200); 
   const [dietaryPreferences, setDietaryPreferences] = useState<string>("");
   const [avoidFoods, setAvoidFoods] = useState<string>("");
@@ -36,16 +32,11 @@ export function MealPreferencesAndSuggestions() {
   const [suggestedMeals, setSuggestedMeals] = useState<MealItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Removed useEffect that tied calorieLimit to userSettings.dailyCalorieTarget
-  // This calorieLimit is now specific to this form's context.
-
   const handleCalorieInputChange = (value: string) => {
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue >= 0) {
       setCalorieLimit(numValue);
     } else if (value === "") {
-      // Allow clearing the input, default to 0 if empty string is parsed,
-      // or handle as per requirements (e.g., keep it as 0 or last valid)
       setCalorieLimit(0); 
     }
   };
@@ -60,7 +51,7 @@ export function MealPreferencesAndSuggestions() {
     setSuggestedMeals(null);
 
     const submitInput: SuggestMealsInput = {
-      calorieLimit: Number.isNaN(calorieLimit) ? 0 : calorieLimit, // Ensure calorieLimit is a number
+      calorieLimit: Number.isNaN(calorieLimit) ? 0 : calorieLimit, 
       dietaryPreferences,
       avoidFoods,
       timeOfDay,
@@ -125,7 +116,7 @@ export function MealPreferencesAndSuggestions() {
               <Input
                 id="calorie-limit"
                 type="number"
-                value={calorieLimit.toString()} // Ensure it's a string for the input
+                value={calorieLimit.toString()} 
                 onChange={(e) => handleCalorieInputChange(e.target.value)}
                 min="0"
               />
