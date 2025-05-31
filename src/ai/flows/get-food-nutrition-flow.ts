@@ -63,7 +63,7 @@ export async function searchFoodProducts(
     console.error("Edamam API credentials (APP_ID or APP_KEY) are missing. Please check your .env file.");
     return { 
       products: [], 
-      error: "Server configuration error: Edamam API credentials missing. Please contact support.",
+      error: "Server configuration error: Edamam API credentials missing. Please check your .env file.",
     };
   }
 
