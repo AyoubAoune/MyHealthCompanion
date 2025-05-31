@@ -2,7 +2,8 @@
 'use server';
 /**
  * @fileOverview Searches for food products using the Open Food Facts API and returns a list of items with their nutritional data.
- * Results are sorted to prioritize exact matches, then "starts with" matches, then "contains" matches.
+ * Results are filtered to prioritize "whole foods" by excluding items with no calories, >5 ingredients, or from common fast-food brands.
+ * Remaining results are sorted to prioritize exact matches, then "starts with" matches, then "contains" matches.
  *
  * - searchFoodProducts - Fetches a list of food products.
  * - SearchFoodProductsInput - Input type for searchFoodProducts.
@@ -59,11 +60,27 @@ interface TempProductSearchResultItem extends ProductSearchResultItem {
   _apiPopularityIndex: number;
 }
 
+const EXCLUDED_BRAND_KEYWORDS: string[] = [
+  "mcdonald's", "subway", "burger king", "kfc", "starbucks", 
+  "domino's", "pizza hut", "taco bell", "wendy's", "dunkin", 
+  "costco", "nestle", "unilever", "pepsi", "coca-cola", "kraft", // Added some major food corp brands
+  "general mills", "kellogg's", "monster energy", "red bull" // Added more
+];
+
 export async function searchFoodProducts(
   input: SearchFoodProductsInput
 ): Promise<SearchFoodProductsOutput> {
   const encodedSearchTerm = encodeURIComponent(input.foodName);
-  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=20&sort_by=popularity_key`;
+  // Requesting specific fields to reduce payload size
+  const fieldsToFetch = [
+    "code", "product_name", "product_name_en", "generic_name", "brands",
+    "nutriments", "ingredients_n", "ingredients_text_en", // Added ingredients_text_en for fallback
+    "energy-kcal_100g", "fat_100g", "saturated-fat_100g", "trans-fat_100g",
+    "monounsaturated-fat_100g", "polyunsaturated-fat_100g",
+    "carbohydrates_100g", "sugars_100g", "proteins_100g", "fiber_100g"
+  ].join(',');
+  
+  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=50&sort_by=popularity_key&fields=${fieldsToFetch}`; // Increased page_size for more initial results to filter
 
   try {
     const response = await fetch(url, {
@@ -93,15 +110,44 @@ export async function searchFoodProducts(
         return; 
       }
 
+      // 1. Filter by calorie information (must exist)
+      const calories = getNutrient(p.nutriments, 'energy-kcal_100g');
+      if (calories === null) {
+        return; 
+      }
+
       const originalProductName = p.product_name || p.product_name_en || p.generic_name || "";
       const lowerProductName = originalProductName.toLowerCase();
       
+      // Basic relevance: product name must contain the search query
       if (!originalProductName || !lowerProductName.includes(lowerFoodNameQuery)) {
         return; 
       }
       
+      // 2. Filter by ingredient count (max 5)
+      const numIngredients = p.ingredients_n;
+      if (typeof numIngredients === 'number' && numIngredients > 5) {
+        return;
+      }
+      // Fallback: if ingredients_n not present, check length of ingredients_text if available (approximate)
+      // This is a rough heuristic as ingredients_text can be long for other reasons.
+      // else if (!numIngredients && p.ingredients_text_en && p.ingredients_text_en.split(',').length > 7) { // Example: 7 as a slightly higher threshold for text
+      //   return;
+      // }
+
+
+      // 3. Filter by brand names (exclude common fast-food/restaurant brands)
+      const productBrands = p.brands;
+      if (productBrands && typeof productBrands === 'string') {
+        const lowerProductBrands = productBrands.toLowerCase();
+        for (const excludedBrand of EXCLUDED_BRAND_KEYWORDS) {
+          if (lowerProductBrands.includes(excludedBrand)) {
+            return; // Exclude this product
+          }
+        }
+      }
+            
       const nutriments = p.nutriments;
-      const calories = getNutrient(nutriments, 'energy-kcal_100g');
       const fat = getNutrient(nutriments, 'fat_100g');
       const saturatedFat = getNutrient(nutriments, 'saturated-fat_100g');
       const transFat = getNutrient(nutriments, 'trans-fat_100g');
@@ -138,7 +184,7 @@ export async function searchFoodProducts(
         id: p.code.toString(),
         displayName: displayName,
         nutritionData: {
-          calories,
+          calories, // Already checked not null
           fat,
           healthyFats: calculatedHealthyFats,
           unhealthyFats: calculatedUnhealthyFats,
@@ -157,18 +203,18 @@ export async function searchFoodProducts(
         if (a._sortPriority !== b._sortPriority) {
             return a._sortPriority - b._sortPriority;
         }
-        return a._apiPopularityIndex - b._apiPopularityIndex; // Tie-break with original API order
+        return a._apiPopularityIndex - b._apiPopularityIndex; // Tie-break with original API order (within the filtered results)
     });
     
     const finalResults: ProductSearchResultItem[] = tempResults.map(item => ({
         id: item.id,
         displayName: item.displayName,
         nutritionData: item.nutritionData,
-    }));
+    })).slice(0, 20); // Limit final results to a manageable number, e.g., 20
 
 
     if (finalResults.length === 0) {
-        return { products: [], error: `No products found where the name contains "${input.foodName}" after filtering.` };
+        return { products: [], error: `No products matching your criteria were found for "${input.foodName}" after filtering.` };
     }
 
     return { products: finalResults };
@@ -199,3 +245,4 @@ export async function searchFoodProducts(
     return { products: [], error: `Flow Error: ${detail}` };
   }
 }
+
