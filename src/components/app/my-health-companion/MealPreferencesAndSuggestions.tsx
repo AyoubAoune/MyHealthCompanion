@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Sparkles, Loader2, Salad, ListPlus, ShoppingBasket } from "lucide-react";
+import { Lightbulb, Sparkles, Loader2, Salad, ListPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -175,13 +175,13 @@ export function MealPreferencesAndSuggestions({ onAddIngredientsToDraft }: MealP
       {suggestedMeals && suggestedMeals.length > 0 && (
         <>
           <Separator className="my-4" />
-          <div className="flex-1 min-h-0 space-y-4"> {/* MODIFIED: Was space-y-4 flex-shrink-0 */}
-            <h2 className="text-lg font-semibold text-primary flex items-center">
+          <div className="space-y-2"> {/* Container for title and scroll area */}
+            <h2 className="text-lg font-semibold text-primary flex items-center px-1 pt-1">
               <Salad className="mr-2 h-5 w-5" />
               Your Meal Suggestions for {timeOfDay}
             </h2>
-            <ScrollArea className="max-h-96">
-              <div className="space-y-3 pr-3">
+            <ScrollArea className="w-full max-h-96"> {/* Explicit max-height */}
+              <div className="space-y-3 p-2"> {/* Content with padding inside ScrollArea */}
                 {suggestedMeals.map((meal, index) => (
                   <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
                     <CardHeader className="pb-2">
@@ -228,7 +228,7 @@ export function MealPreferencesAndSuggestions({ onAddIngredientsToDraft }: MealP
        {suggestedMeals && suggestedMeals.length === 0 && !isLoading && (
         <>
           <Separator className="my-4" />
-          <Card className="shadow-md flex-shrink-0">
+          <Card className="shadow-md">
             <CardHeader>
                 <CardTitle className="text-base">No Suggestions Found</CardTitle>
             </CardHeader>
