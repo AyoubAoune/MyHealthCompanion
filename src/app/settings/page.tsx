@@ -22,9 +22,9 @@ export default function SettingsPage() {
             </div>
           </div>
         </header>
-        <Skeleton className="h-96 w-full max-w-2xl mx-auto rounded-lg" />
+        <Skeleton className="h-96 w-full max-w-md mx-auto rounded-lg" /> {/* Adjusted max-width */}
         {/* Skeleton for potential ReminderSetupCard */}
-        {/* <Skeleton className="h-72 w-full max-w-2xl mx-auto rounded-lg mt-6" />  */}
+        {/* <Skeleton className="h-72 w-full max-w-md mx-auto rounded-lg mt-6" />  */}
       </div>
     );
   }
@@ -42,12 +42,12 @@ export default function SettingsPage() {
         </div>
       </header>
       
-      <div className="max-w-2xl mx-auto space-y-8">
+      <div className="max-w-md mx-auto space-y-8"> {/* Adjusted max-width from max-w-2xl */}
         <DailyGoalsCard />
         {/* 
         // Placeholder for ReminderSetupCard if you want to add it later
         // Make sure to uncomment the import above and the skeleton if used.
-        <ReminderSetupCard userSettings={userSettings} onUpdateSettings={updateUserSettings} /> 
+        // <ReminderSetupCard userSettings={userSettings} onUpdateSettings={updateUserSettings} /> 
         */}
       </div>
     </div>

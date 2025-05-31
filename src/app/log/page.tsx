@@ -24,7 +24,7 @@ export default function LogPage() {
             </div>
           </div>
         </header>
-        <div className="flex flex-col md:flex-row gap-8 max-w-5xl mx-auto">
+        <div className="flex flex-col md:flex-row gap-8 max-w-4xl mx-auto"> {/* Adjusted max-width */}
           <Skeleton className="h-96 w-full md:flex-1 rounded-lg mb-6 md:mb-0" />
           <Skeleton className="h-80 w-full md:flex-1 rounded-lg" />
         </div>
@@ -44,7 +44,7 @@ export default function LogPage() {
           <p className="text-md md:text-lg text-muted-foreground">Keep track of your daily nutrition.</p>
         </div>
       </header>
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-4xl mx-auto"> {/* Adjusted max-width from max-w-5xl */}
         <div className="flex flex-col md:flex-row md:gap-8 space-y-8 md:space-y-0">
           <div className="md:flex-1 w-full">
             <LogIntakeForm />

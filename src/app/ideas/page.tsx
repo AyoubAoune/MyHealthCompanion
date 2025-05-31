@@ -23,7 +23,7 @@ export default function IdeasPage() {
           </div>
         </header>
         {/* Skeletons for side-by-side layout */}
-        <div className="flex flex-col md:flex-row gap-8">
+        <div className="flex flex-col md:flex-row gap-8 max-w-5xl mx-auto"> {/* Adjusted max-width */}
             <Skeleton className="h-96 w-full md:flex-1 rounded-lg mb-6 md:mb-0" />
             <Skeleton className="h-80 w-full md:flex-1 rounded-lg" />
         </div>
@@ -45,7 +45,7 @@ export default function IdeasPage() {
       </header>
       
       {/* Container for side-by-side layout on medium screens and up */}
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-5xl mx-auto"> {/* Adjusted max-width from max-w-6xl */}
         <div className="flex flex-col md:flex-row gap-8">
           {/* Left Card: Meal Preferences */}
           <div className="md:flex-1 w-full">
