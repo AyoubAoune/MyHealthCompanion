@@ -1,4 +1,7 @@
 
+import type { LucideIcon } from 'lucide-react';
+import { Cookie, IceCream, Utensils, CalendarCheck2, Trophy } from 'lucide-react';
+
 export interface UserSettings {
   name: string;
   dailyCalorieTarget: number;
@@ -6,6 +9,7 @@ export interface UserSettings {
   dailyFiberTarget: number;
   reminderTime: string; // e.g., "09:00"
   remindersEnabled: boolean;
+  totalRewardPoints: number; // New field for gamification
 }
 
 export const MEAL_TYPES = [
@@ -42,11 +46,11 @@ export interface DailyLog {
   totalCalories: number;
   totalProtein: number;
   totalFiber: number;
-  totalFat: number; // Changed to non-optional, default 0
-  totalHealthyFats: number; // Changed to non-optional, default 0
-  totalUnhealthyFats: number; // Changed to non-optional, default 0
-  totalCarbs: number; // Changed to non-optional, default 0
-  totalSugar: number; // Changed to non-optional, default 0
+  totalFat: number; 
+  totalHealthyFats: number; 
+  totalUnhealthyFats: number; 
+  totalCarbs: number; 
+  totalSugar: number; 
 }
 
 
@@ -63,6 +67,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   dailyFiberTarget: 30,
   reminderTime: "09:00",
   remindersEnabled: false,
+  totalRewardPoints: 0, // Initialize reward points
 };
 
 export const DEFAULT_DAILY_LOG_BASE: Omit<DailyLog, 'date'> = {
@@ -88,11 +93,11 @@ export interface BaseNutritionData {
   sugar: number | null;
   protein: number | null;
   fiber: number | null;
-  sourceName: string | null; // Name of the food item from the API or as selected by user
+  sourceName: string | null; 
 }
 
 export interface ProductSearchResultItem {
-  id: string; // API product code
+  id: string; 
   displayName: string;
   nutritionData: BaseNutritionData;
 }
@@ -102,11 +107,10 @@ export interface ChecklistItem {
   id: string;
   text: string;
   completed: boolean;
-  // category: 'todo' | 'avoid'; // Future use for 'Things to Avoid'
 }
 
 export interface DailyChecklist {
-  date: string; // YYYY-MM-DD, to ensure daily reset
+  date: string; 
   items: ChecklistItem[];
 }
 
@@ -125,10 +129,48 @@ export interface WeightLog {
   weight: number; // in kg
 }
 
-// New BodyMeasurementLog for waist size and potentially other measurements
+// BodyMeasurementLog for waist size and potentially other measurements
 export interface BodyMeasurementLog {
   date: string; // YYYY-MM-DD
   waistSizeCm?: number | null;
-  // Future: hipSizeCm?: number | null;
-  // Future: neckSizeCm?: number | null;
 }
+
+// Gamification: Prize Interface and Data
+export interface Prize {
+  id: string;
+  name: string;
+  cost: number;
+  description: string;
+  icon: React.ElementType; // Using React.ElementType for Lucide icons
+}
+
+export const PRIZES: Prize[] = [
+  {
+    id: 'snack',
+    name: 'A Well-Deserved Snack',
+    cost: 15,
+    description: 'Enjoy a small, satisfying snack of your choice!',
+    icon: Cookie,
+  },
+  {
+    id: 'dessert',
+    name: 'Delicious Dessert or Ice Cream',
+    cost: 35,
+    description: 'Treat yourself to a sweet dessert or a scoop of ice cream.',
+    icon: IceCream,
+  },
+  {
+    id: 'cheatmeal',
+    name: 'Guilt-Free Cheat Meal',
+    cost: 70,
+    description: 'Indulge in one meal that\'s off your usual plan.',
+    icon: Utensils,
+  },
+  {
+    id: 'cheatday',
+    name: 'Ultimate Cheat Day',
+    cost: 140,
+    description: 'Take a full day to relax your dietary rules and enjoy!',
+    icon: CalendarCheck2,
+  },
+];

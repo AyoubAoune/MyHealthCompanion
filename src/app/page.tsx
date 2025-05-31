@@ -5,7 +5,8 @@ import { useAppContext } from "@/components/app/my-health-companion/AppContext";
 import { IntakeProgressCard } from "@/components/app/my-health-companion/IntakeProgressCard";
 import { WeeklyBudgetCard } from "@/components/app/my-health-companion/WeeklyBudgetCard";
 import { DailyChecklistCard } from "@/components/app/my-health-companion/DailyChecklistCard"; 
-import { HelpfulTopicsCard } from "@/components/app/my-health-companion/HelpfulTopicsCard"; // New Import
+import { HelpfulTopicsCard } from "@/components/app/my-health-companion/HelpfulTopicsCard";
+import { RewardsCard } from "@/components/app/my-health-companion/RewardsCard"; // New Import
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +32,7 @@ export default function DashboardPage() {
           <section className="lg:col-span-2 space-y-6">
             <Skeleton className="h-64 w-full rounded-lg" /> {/* IntakeProgressCard Skeleton */}
             <Skeleton className="h-72 w-full rounded-lg" /> {/* DailyChecklistCard Skeleton */}
+            <Skeleton className="h-60 w-full rounded-lg" /> {/* RewardsCard Skeleton */}
             <Skeleton className="h-56 w-full rounded-lg" /> {/* HelpfulTopicsCard Skeleton */}
           </section>
           {/* Column 2 Skeletons (Weekly Budget on Desktop) */}
@@ -60,11 +62,12 @@ export default function DashboardPage() {
       <Separator className="my-6" />
 
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Progress, Checklist, Topics */}
+        {/* Column 1: Progress, Checklist, Rewards, Topics */}
         <section className="lg:col-span-2 space-y-6">
           <IntakeProgressCard />
           <DailyChecklistCard /> 
-          <HelpfulTopicsCard /> {/* New Card Added */}
+          <RewardsCard /> {/* New Card Added */}
+          <HelpfulTopicsCard /> 
         </section>
 
         {/* Column 2: Summaries (Weekly Budget on Desktop) */}

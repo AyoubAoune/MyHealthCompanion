@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import useLocalStorage from '@/hooks/useLocalStorage';
-import type { UserSettings, DailyLog, WeightLog, BodyMeasurementLog, LoggedEntry, MealType, DailyChecklist, ChecklistItem } from './types';
+import type { UserSettings, DailyLog, WeightLog, BodyMeasurementLog, LoggedEntry, DailyChecklist, ChecklistItem } from './types';
 import { DEFAULT_USER_SETTINGS, DEFAULT_DAILY_LOG_BASE, DEFAULT_DAILY_CHECKLIST_ITEMS } from './types';
 import { getCurrentDateFormatted } from './date-utils';
 
@@ -12,15 +12,16 @@ interface AppContextType {
   userSettings: UserSettings;
   dailyLogs: DailyLog[];
   weightLogs: WeightLog[];
-  bodyMeasurementLogs: BodyMeasurementLog[]; // New state for body measurements
+  bodyMeasurementLogs: BodyMeasurementLog[];
   dailyChecklist: DailyChecklist | null;
   currentDayLog: DailyLog | null;
   isLoading: boolean;
-  updateUserSettings: (newSettings: Partial<UserSettings>) => void;
+  updateUserSettings: (newSettingsOrUpdater: Partial<UserSettings> | ((prevSettings: UserSettings) => Partial<UserSettings>)) => void;
   logIntake: (entryData: Omit<LoggedEntry, 'id'>) => void;
   logWeight: (weight: number) => void;
-  logWaistSize: (waistCm: number) => void; // New function to log waist size
+  logWaistSize: (waistCm: number) => void;
   toggleChecklistItem: (itemId: string) => void;
+  claimReward: (prizeCost: number) => boolean; // New function for rewards
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -28,8 +29,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const initialDailyLogs = useMemo(() => [], []);
   const initialWeightLogs = useMemo(() => [], []);
-  const initialBodyMeasurementLogs = useMemo(() => [], []); // Initializer for new state
-  const todayStr = getCurrentDateFormatted(); // Get today's date once
+  const initialBodyMeasurementLogs = useMemo(() => [], []);
+  const todayStr = getCurrentDateFormatted();
 
   const [userSettings, setUserSettings] = useLocalStorage<UserSettings>("myhealthcompanion-settings", DEFAULT_USER_SETTINGS);
   const [dailyLogs, setDailyLogs] = useLocalStorage<DailyLog[]>("myhealthcompanion-dailylogs", initialDailyLogs);
@@ -37,7 +38,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [bodyMeasurementLogs, setBodyMeasurementLogs] = useLocalStorage<BodyMeasurementLog[]>(
     "myhealthcompanion-bodymeasurements", 
     initialBodyMeasurementLogs
-  ); // New localStorage for body measurements
+  ); 
   
   const [dailyChecklist, setDailyChecklist] = useLocalStorage<DailyChecklist | null>(
     `myhealthcompanion-checklist-${todayStr}`, 
@@ -77,8 +78,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [dailyLogs, isLoading, todayStr, dailyChecklist, setDailyChecklist]);
 
 
-  const updateUserSettings = useCallback((newSettings: Partial<UserSettings>) => {
-    setUserSettings(prev => ({ ...prev, ...newSettings }));
+  const updateUserSettings = useCallback((newSettingsOrUpdater: Partial<UserSettings> | ((prevSettings: UserSettings) => Partial<UserSettings>)) => {
+    if (typeof newSettingsOrUpdater === 'function') {
+      setUserSettings(prev => ({ ...prev, ...newSettingsOrUpdater(prev) }));
+    } else {
+      setUserSettings(prev => ({ ...prev, ...newSettingsOrUpdater }));
+    }
   }, [setUserSettings]);
 
   const logIntake = useCallback((entryData: Omit<LoggedEntry, 'id'>) => {
@@ -146,39 +151,78 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBodyMeasurementLogs(prevLogs => {
       const existingLogIndex = prevLogs.findIndex(log => log.date === currentTodayStr);
       if (existingLogIndex > -1) {
-        // Update existing log for the day, preserving other potential measurements
         const updatedLogs = [...prevLogs];
         updatedLogs[existingLogIndex] = { ...updatedLogs[existingLogIndex], date: currentTodayStr, waistSizeCm: waistCm };
         return updatedLogs;
       }
-      // Add new log for the day
       return [...prevLogs, { date: currentTodayStr, waistSizeCm: waistCm }];
     });
   }, [setBodyMeasurementLogs]);
 
   const toggleChecklistItem = useCallback((itemId: string) => {
+    let itemChangedToCompleted = false;
+    let itemChangedToIncomplete = false;
+
     setDailyChecklist(prevChecklist => {
       if (!prevChecklist) return null;
+
+      const originalItem = prevChecklist.items.find(item => item.id === itemId);
+      if (!originalItem) return prevChecklist;
+
       const updatedItems = prevChecklist.items.map(item =>
         item.id === itemId ? { ...item, completed: !item.completed } : item
       );
+      
+      const updatedItem = updatedItems.find(item => item.id === itemId);
+      if (updatedItem) {
+        if (updatedItem.completed && !originalItem.completed) {
+          itemChangedToCompleted = true;
+        } else if (!updatedItem.completed && originalItem.completed) {
+          itemChangedToIncomplete = true;
+        }
+      }
       return { ...prevChecklist, items: updatedItems };
     });
-  }, [setDailyChecklist]);
+
+    // Update reward points based on the change
+    if (itemChangedToCompleted) {
+      updateUserSettings(prevSettings => ({
+        ...prevSettings,
+        totalRewardPoints: (prevSettings.totalRewardPoints || 0) + 1,
+      }));
+    } else if (itemChangedToIncomplete) {
+      updateUserSettings(prevSettings => ({
+        ...prevSettings,
+        totalRewardPoints: Math.max(0, (prevSettings.totalRewardPoints || 0) - 1),
+      }));
+    }
+  }, [setDailyChecklist, updateUserSettings]);
+
+  const claimReward = useCallback((prizeCost: number): boolean => {
+    if (userSettings.totalRewardPoints >= prizeCost) {
+      updateUserSettings(prevSettings => ({
+        ...prevSettings,
+        totalRewardPoints: prevSettings.totalRewardPoints - prizeCost,
+      }));
+      return true;
+    }
+    return false;
+  }, [userSettings.totalRewardPoints, updateUserSettings]);
 
   const contextValue = {
     userSettings,
     dailyLogs,
     weightLogs,
-    bodyMeasurementLogs, // Add to context
+    bodyMeasurementLogs,
     dailyChecklist,
     currentDayLog,
     isLoading,
     updateUserSettings,
     logIntake,
     logWeight,
-    logWaistSize, // Add to context
+    logWaistSize,
     toggleChecklistItem,
+    claimReward, // Expose new function
   };
 
   return (
