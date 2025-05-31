@@ -1,9 +1,8 @@
 
 'use server';
 /**
- * @fileOverview Searches for food products using the Open Food Facts API and returns a list of items with their nutritional data.
- * Results are filtered to prioritize "whole foods" by excluding items with no calories, >5 ingredients, or from common fast-food brands.
- * Remaining results are sorted to prioritize exact matches, then "starts with" matches, then "contains" matches.
+ * @fileOverview Searches for food products using the Edamam Food Database API and returns a list of items with their nutritional data.
+ * Results are sorted to prioritize exact matches, then "starts with" matches, then "contains" matches.
  *
  * - searchFoodProducts - Fetches a list of food products.
  * - SearchFoodProductsInput - Input type for searchFoodProducts.
@@ -48,50 +47,40 @@ const SearchFoodProductsOutputSchema = z.object({
 export type SearchFoodProductsOutput = z.infer<typeof SearchFoodProductsOutputSchema>;
 
 
-const getNutrient = (nutriments: any, key: string): number | null => {
-  let val = nutriments[key];
-  if (val === undefined || val === null || val === '') return null;
-  if (typeof val === 'string') {
-    const parsedVal = parseFloat(val.replace(',', '.'));
-    val = isNaN(parsedVal) ? null : parsedVal;
+const getNutrientValue = (nutrients: any, key: string): number | null => {
+  const nutrient = nutrients[key];
+  if (nutrient && typeof nutrient.quantity === 'number' && isFinite(nutrient.quantity)) {
+    return parseFloat(nutrient.quantity.toFixed(2)); // Keep two decimal places
   }
-  return typeof val === 'number' && isFinite(val) ? val : null;
+  if (typeof nutrient === 'number' && isFinite(nutrient)) { // Edamam sometimes returns direct numbers
+    return parseFloat(nutrient.toFixed(2));
+  }
+  return null;
 };
 
 interface TempProductSearchResultItem extends ProductSearchResultItem {
   _sortPriority: number;
-  _apiPopularityIndex: number;
+  _apiOriginalIndex: number; // To maintain some original order as tie-breaker
 }
-
-const EXCLUDED_BRAND_KEYWORDS: string[] = [
-  "mcdonald's", "subway", "burger king", "kfc", "starbucks", 
-  "domino's", "pizza hut", "taco bell", "wendy's", "dunkin", 
-  "costco", "nestle", "unilever", "pepsi", "coca-cola", "kraft",
-  "general mills", "kellogg's", "monster energy", "red bull", "carl's jr",
-  "dairy queen", "tim hortons", "popeyes", "chipotle", "panda express",
-  "heinz", "mars", "mondelez", "danone", "ferrero", "dr pepper snapple",
-  "frito-lay", "cadbury", "lindt", "haribo", "ritter sport", "milka",
-  "pringles", "oreo", "lays", "doritos", "cheetos", "tostitos",
-  "ben & jerry's", "haagen-dazs", "magnum", "kitkat", "snickers", "twix",
-  "baskin robbins", "cold stone creamery", "ihop", "denny's", "applebee's",
-  "chili's", "olive garden", "red lobster", "outback steakhouse", "tgi fridays",
-  "panera bread", "au bon pain", "pret a manger"
-];
 
 export async function searchFoodProducts(
   input: SearchFoodProductsInput
 ): Promise<SearchFoodProductsOutput> {
+  const appId = process.env.EDAMAM_APP_ID;
+  const appKey = process.env.EDAMAM_APP_KEY;
+
+  if (!appId || !appKey || appId === 'your_edamam_app_id' || appKey === 'your_edamam_app_key') {
+    console.error('Edamam API credentials not configured in .env file.');
+    return {
+      products: [],
+      error: 'Food database API credentials are not configured. Please set EDAMAM_APP_ID and EDAMAM_APP_KEY in your .env file.',
+    };
+  }
+
   const encodedSearchTerm = encodeURIComponent(input.foodName);
-  const fieldsToFetch = [
-    "code", "product_name", "product_name_en", "generic_name", "brands",
-    "nutriments", "ingredients_n", // ingredients_text_en can be very large, skip for now
-    "energy-kcal_100g", "fat_100g", "saturated-fat_100g", "trans-fat_100g",
-    "monounsaturated-fat_100g", "polyunsaturated-fat_100g",
-    "carbohydrates_100g", "sugars_100g", "proteins_100g", "fiber_100g"
-  ].join(',');
-  
-  const pageSize = 25; // Reduced page size
-  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=${pageSize}&sort_by=popularity_key&fields=${fieldsToFetch}`;
+  // Edamam's parser endpoint is good for natural language queries.
+  // `nutrition-type=logging` is for general purpose food logging.
+  const url = `https://api.edamam.com/api/food-database/v2/parser?app_id=${appId}&app_key=${appKey}&ingr=${encodedSearchTerm}&nutrition-type=logging`;
 
   let apiFetchDurationMs: number | undefined;
   let jsonParseDurationMs: number | undefined;
@@ -99,23 +88,29 @@ export async function searchFoodProducts(
 
   try {
     const startTime = Date.now();
-    console.log(`[searchFoodProducts] Fetching (page_size: ${pageSize}, term: "${input.foodName}"): ${url}`);
+    console.log(`[searchFoodProducts Edamam] Fetching (term: "${input.foodName}"): ${url.substring(0, url.indexOf('app_key='))}app_key=HIDDEN...`);
 
     const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-            'User-Agent': 'MyHealthCompanionApp/1.0 (Web; +https://myhealthcompanion.com/contact)'
-        }
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
     });
 
     const fetchEndTime = Date.now();
     apiFetchDurationMs = fetchEndTime - startTime;
-    console.log(`[searchFoodProducts] API fetch took ${apiFetchDurationMs} ms. Status: ${response.status}`);
+    console.log(`[searchFoodProducts Edamam] API fetch took ${apiFetchDurationMs} ms. Status: ${response.status}`);
 
     if (!response.ok) {
-      console.error('Open Food Facts API request failed:', response.status, response.statusText);
+      console.error('Edamam API request failed:', response.status, response.statusText);
       const responseText = await response.text().catch(() => "Could not retrieve error body");
-      return { products: [], error: `API Error: ${response.status} ${response.statusText}. Body: ${responseText.substring(0, 200)}`, apiFetchDurationMs };
+      let errorDetail = `API Error: ${response.status} ${response.statusText}.`;
+      if (response.status === 401 || response.status === 403) {
+        errorDetail += " This might be due to invalid or missing API credentials for Edamam.";
+      } else {
+        errorDetail += ` Body: ${responseText.substring(0, 200)}`;
+      }
+      return { products: [], error: errorDetail, apiFetchDurationMs };
     }
 
     const responseText = await response.text();
@@ -123,91 +118,83 @@ export async function searchFoodProducts(
     const data = JSON.parse(responseText);
     const jsonParseEndTime = Date.now();
     jsonParseDurationMs = jsonParseEndTime - jsonParseStartTime;
-    console.log(`[searchFoodProducts] JSON parsing took ${jsonParseDurationMs} ms.`);
-    
+    console.log(`[searchFoodProducts Edamam] JSON parsing took ${jsonParseDurationMs} ms.`);
+
     const totalApiAndParseTime = (apiFetchDurationMs || 0) + (jsonParseDurationMs || 0);
-    console.log(`[searchFoodProducts] Total API + JSON parsing time: ${totalApiAndParseTime} ms.`);
+    console.log(`[searchFoodProducts Edamam] Total API + JSON parsing time: ${totalApiAndParseTime} ms.`);
 
+    const edamamResults = data.hints || []; // `hints` is the array of results for general queries
+                                           // `parsed` is usually for specific ingredient analysis
 
-    if (!data.products || !Array.isArray(data.products) || data.products.length === 0) {
-      return { products: [], error: `No products found for "${input.foodName}" from the API.`, apiFetchDurationMs, jsonParseDurationMs };
+    if (!edamamResults || !Array.isArray(edamamResults) || edamamResults.length === 0) {
+      return { products: [], error: `No products found for "${input.foodName}" from Edamam.`, apiFetchDurationMs, jsonParseDurationMs };
     }
 
     const processingStartTime = Date.now();
     const tempResults: TempProductSearchResultItem[] = [];
     const lowerFoodNameQuery = input.foodName.toLowerCase();
 
-    data.products.forEach((p: any, index: number) => {
-      if (!(p && typeof p === 'object' && p.code && p.nutriments && typeof p.nutriments === 'object')) {
-        return; 
-      }
-
-      const calories = getNutrient(p.nutriments, 'energy-kcal_100g');
-      if (calories === null || calories === 0) { // Exclude items with no calories or zero calories
-        return; 
-      }
-
-      const originalProductName = p.product_name || p.product_name_en || p.generic_name || "";
-      const lowerProductName = originalProductName.toLowerCase();
-      
-      if (!originalProductName || !lowerProductName.includes(lowerFoodNameQuery)) {
-        return; 
-      }
-      
-      const numIngredients = p.ingredients_n;
-      if (typeof numIngredients === 'number' && numIngredients > 5) {
+    edamamResults.forEach((item: any, index: number) => {
+      const food = item.food;
+      if (!(food && food.foodId && food.label && food.nutrients)) {
         return;
       }
 
-      const productBrands = p.brands;
-      if (productBrands && typeof productBrands === 'string') {
-        const lowerProductBrands = productBrands.toLowerCase();
-        for (const excludedBrand of EXCLUDED_BRAND_KEYWORDS) {
-          if (lowerProductBrands.includes(excludedBrand)) {
-            return; 
-          }
-        }
+      const calories = getNutrientValue(food.nutrients, 'ENERC_KCAL');
+      // Edamam results usually have calories, but good to check.
+      if (calories === null || calories === 0) {
+         return;
       }
-            
-      const nutriments = p.nutriments;
-      const fat = getNutrient(nutriments, 'fat_100g');
-      const saturatedFat = getNutrient(nutriments, 'saturated-fat_100g');
-      const transFat = getNutrient(nutriments, 'trans-fat_100g');
-      const monounsaturatedFat = getNutrient(nutriments, 'monounsaturated-fat_100g');
-      const polyunsaturatedFat = getNutrient(nutriments, 'polyunsaturated-fat_100g');
-      
+
+      const originalProductName = food.label;
+      const lowerProductName = originalProductName.toLowerCase();
+
+      // Basic check: does the item label contain the search query?
+      // Edamam's relevance scoring is usually good, but this is a fallback.
+      if (!lowerProductName.includes(lowerFoodNameQuery)) {
+        // return; // Keep this commented for now, Edamam's relevance might be better.
+      }
+
+      const totalFat = getNutrientValue(food.nutrients, 'FAT');
+      const saturatedFat = getNutrientValue(food.nutrients, 'FASAT'); // Saturated
+      const transFat = getNutrientValue(food.nutrients, 'FATRN');     // Trans
+      const monounsaturatedFat = getNutrientValue(food.nutrients, 'FAMS'); // Monounsaturated
+      const polyunsaturatedFat = getNutrientValue(food.nutrients, 'FAPU'); // Polyunsaturated
+
       let calculatedHealthyFats: number | null = null;
       if (monounsaturatedFat !== null || polyunsaturatedFat !== null) {
         calculatedHealthyFats = (monounsaturatedFat ?? 0) + (polyunsaturatedFat ?? 0);
       }
-      
+
       let calculatedUnhealthyFats: number | null = null;
       if (saturatedFat !== null || transFat !== null) {
         calculatedUnhealthyFats = (saturatedFat ?? 0) + (transFat ?? 0);
       }
 
-      const carbs = getNutrient(nutriments, 'carbohydrates_100g');
-      const sugar = getNutrient(nutriments, 'sugars_100g');
-      const protein = getNutrient(nutriments, 'proteins_100g');
-      const fiber = getNutrient(nutriments, 'fiber_100g');
-      
-      const displayName = originalProductName || "Unknown Product";
+      const carbs = getNutrientValue(food.nutrients, 'CHOCDF'); // Total Carbohydrate, by difference
+      const sugar = getNutrientValue(food.nutrients, 'SUGAR');    // Total Sugars
+      const protein = getNutrientValue(food.nutrients, 'PROCNT'); // Protein
+      const fiber = getNutrientValue(food.nutrients, 'FIBTG');   // Fiber, total dietary
+
+      const displayName = food.label;
 
       let sortPriority: number;
       if (lowerProductName === lowerFoodNameQuery) {
         sortPriority = 0; // Exact match
       } else if (lowerProductName.startsWith(lowerFoodNameQuery)) {
         sortPriority = 1; // Starts with query
-      } else {
+      } else if (lowerProductName.includes(lowerFoodNameQuery)){ // Ensure it contains query if not exact or startsWith
         sortPriority = 2; // Contains query
+      } else {
+        sortPriority = 3; // Does not directly contain (should be rare with Edamam's relevance)
       }
 
       tempResults.push({
-        id: p.code.toString(),
+        id: food.foodId,
         displayName: displayName,
         nutritionData: {
-          calories, 
-          fat,
+          calories,
+          fat: totalFat,
           healthyFats: calculatedHealthyFats,
           unhealthyFats: calculatedUnhealthyFats,
           carbs,
@@ -217,54 +204,43 @@ export async function searchFoodProducts(
           sourceName: displayName,
         },
         _sortPriority: sortPriority,
-        _apiPopularityIndex: index, 
+        _apiOriginalIndex: index,
       });
     });
 
     tempResults.sort((a, b) => {
-        if (a._sortPriority !== b._sortPriority) {
-            return a._sortPriority - b._sortPriority;
-        }
-        return a._apiPopularityIndex - b._apiPopularityIndex; 
+      if (a._sortPriority !== b._sortPriority) {
+        return a._sortPriority - b._sortPriority;
+      }
+      return a._apiOriginalIndex - b._apiOriginalIndex; // Fallback to original API order
     });
-    
-    const finalResults: ProductSearchResultItem[] = tempResults.map(item => ({
+
+    const finalResults: ProductSearchResultItem[] = tempResults
+      .map(item => ({
         id: item.id,
         displayName: item.displayName,
         nutritionData: item.nutritionData,
-    })).slice(0, 20); // Still cap final display results
-
+      }))
+      .slice(0, 20); // Cap final display results to 20
 
     const processingEndTime = Date.now();
     processingDurationMs = processingEndTime - processingStartTime;
-    console.log(`[searchFoodProducts] Data processing (filtering, sorting) took ${processingDurationMs} ms.`);
+    console.log(`[searchFoodProducts Edamam] Data processing (mapping, sorting) took ${processingDurationMs} ms.`);
 
     if (finalResults.length === 0) {
-        return { products: [], error: `No products matching your criteria were found for "${input.foodName}" after filtering.`, apiFetchDurationMs, jsonParseDurationMs, processingDurationMs };
+      return { products: [], error: `No products matching your criteria were found for "${input.foodName}" from Edamam after processing.`, apiFetchDurationMs, jsonParseDurationMs, processingDurationMs };
     }
 
     return { products: finalResults, apiFetchDurationMs, jsonParseDurationMs, processingDurationMs };
 
   } catch (error: unknown) {
-    console.error('Full error in searchFoodProducts flow:', error); 
+    console.error('Full error in searchFoodProducts (Edamam) flow:', error);
 
-    // Improved error handling for network issues
-    if (error instanceof TypeError && (error.message === 'fetch failed' || (error.cause instanceof Error && error.cause.message.includes('ECONNREFUSED')))) {
-      let causeMessage = "Network request to Open Food Facts API failed.";
-      if (error.cause instanceof Error) { 
-        causeMessage += ` This might be due to a network connectivity issue (e.g., ${error.cause.message}) from your current environment.`;
-      } else if (error.cause) { 
-        causeMessage += ` Specific cause: ${String(error.cause)}.`;
-      }
-      causeMessage += " If you are running in a simulator, virtual machine, or restricted network environment, please check its network access capabilities for external APIs like world.openfoodfacts.org.";
-      return { products: [], error: causeMessage, apiFetchDurationMs, jsonParseDurationMs };
-    }
-    
-    let detail = 'An unexpected error occurred while processing food data.';
+    let detail = 'An unexpected error occurred while processing food data using Edamam API.';
     if (error instanceof Error) {
       detail = error.message;
       if (error.cause) {
-          detail += ` Cause: ${String(error.cause)}`;
+        detail += ` Cause: ${String(error.cause)}`;
       }
     } else if (typeof error === 'string') {
       detail = error;
@@ -272,4 +248,3 @@ export async function searchFoodProducts(
     return { products: [], error: `Flow Error: ${detail}`, apiFetchDurationMs, jsonParseDurationMs };
   }
 }
-
