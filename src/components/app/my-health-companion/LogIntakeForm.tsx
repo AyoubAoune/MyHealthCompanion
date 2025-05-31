@@ -156,7 +156,7 @@ export function LogIntakeForm() {
               </Select>
             </div>
 
-            <div className="mt-6 p-4 border rounded-md bg-secondary/30 space-y-2">
+            <div className="mt-6 p-4 border rounded-md bg-secondary/30 space-y-1"> {/* Adjusted from space-y-2 to space-y-1 */}
               <h4 className="font-semibold text-lg mb-2 flex items-center">
                 <Utensils className="mr-2 h-5 w-5 text-primary"/>
                 Nutrition for {selectedProduct.displayName} ({quantity}g):
@@ -169,7 +169,7 @@ export function LogIntakeForm() {
               <NutrientDisplay label="Carbohydrates" value={displayValue(selectedProduct.nutritionData.carbs, currentScaleFactor, "g")} />
               <NutrientDisplay label="  Sugars" value={displayValue(selectedProduct.nutritionData.sugar, currentScaleFactor, "g")} />
               <NutrientDisplay label="Fiber" value={displayValue(selectedProduct.nutritionData.fiber, currentScaleFactor, "g")} />
-              <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80" onClick={() => {setSelectedProduct(null); setApiError(null); setFoodNameQuery(""); setSearchResults(null); }}>
+              <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80 mt-2" onClick={() => {setSelectedProduct(null); setApiError(null); setFoodNameQuery(""); setSearchResults(null); }}>
                 Search for another item or change selection
               </Button>
             </div>
@@ -242,11 +242,9 @@ interface NutrientDisplayProps {
 
 function NutrientDisplay({ label, value, note }: NutrientDisplayProps) {
   return (
-    <div className="flex justify-between items-center text-sm">
+    <div className="flex justify-between items-center text-sm py-0.5"> {/* Added py-0.5 for a little vertical padding */}
       <span className="text-muted-foreground">{label}{note && <span className="text-xs block"> ({note})</span>}</span>
       <span className="font-medium">{value}</span>
     </div>
   );
 }
-
-    
