@@ -2,6 +2,7 @@
 'use server';
 /**
  * @fileOverview Searches for food products using the Open Food Facts API and returns a list of items with their nutritional data.
+ * Results are sorted to prioritize exact matches, then "starts with" matches, then "contains" matches.
  *
  * - searchFoodProducts - Fetches a list of food products.
  * - SearchFoodProductsInput - Input type for searchFoodProducts.
@@ -37,7 +38,7 @@ const ProductSearchResultItemSchema = z.object({
 });
 
 const SearchFoodProductsOutputSchema = z.object({
-  products: z.array(ProductSearchResultItemSchema).describe("A list of found food products with their nutritional information."),
+  products: z.array(ProductSearchResultItemSchema).describe("A list of found food products with their nutritional information, sorted by relevance."),
   error: z.string().optional().describe("An error message if the search failed or no products were found."),
 });
 export type SearchFoodProductsOutput = z.infer<typeof SearchFoodProductsOutputSchema>;
@@ -47,18 +48,21 @@ const getNutrient = (nutriments: any, key: string): number | null => {
   let val = nutriments[key];
   if (val === undefined || val === null || val === '') return null;
   if (typeof val === 'string') {
-    // Replace comma with period for European decimal format, then parse
     const parsedVal = parseFloat(val.replace(',', '.'));
     val = isNaN(parsedVal) ? null : parsedVal;
   }
   return typeof val === 'number' && isFinite(val) ? val : null;
 };
 
+interface TempProductSearchResultItem extends ProductSearchResultItem {
+  _sortPriority: number;
+  _apiPopularityIndex: number;
+}
+
 export async function searchFoodProducts(
   input: SearchFoodProductsInput
 ): Promise<SearchFoodProductsOutput> {
   const encodedSearchTerm = encodeURIComponent(input.foodName);
-  // General search, filtering will happen client-side (in this flow)
   const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=20&sort_by=popularity_key`;
 
   try {
@@ -81,24 +85,22 @@ export async function searchFoodProducts(
       return { products: [], error: `No products found for "${input.foodName}" from the API.` };
     }
 
-    const results: ProductSearchResultItem[] = [];
+    const tempResults: TempProductSearchResultItem[] = [];
     const lowerFoodNameQuery = input.foodName.toLowerCase();
 
-    for (const p of data.products) {
+    data.products.forEach((p: any, index: number) => {
       if (!(p && typeof p === 'object' && p.code && p.nutriments && typeof p.nutriments === 'object')) {
-        continue; // Skip malformed product entries
+        return; 
       }
 
       const originalProductName = p.product_name || p.product_name_en || p.generic_name || "";
+      const lowerProductName = originalProductName.toLowerCase();
       
-      // Check if the product name contains the search query (case-insensitive)
-      if (!originalProductName || !originalProductName.toLowerCase().includes(lowerFoodNameQuery)) {
-        continue; // Skip if name doesn't match the query
+      if (!originalProductName || !lowerProductName.includes(lowerFoodNameQuery)) {
+        return; 
       }
       
-      // If name matches, proceed to extract nutrition
       const nutriments = p.nutriments;
-
       const calories = getNutrient(nutriments, 'energy-kcal_100g');
       const fat = getNutrient(nutriments, 'fat_100g');
       const saturatedFat = getNutrient(nutriments, 'saturated-fat_100g');
@@ -121,9 +123,18 @@ export async function searchFoodProducts(
       const protein = getNutrient(nutriments, 'proteins_100g');
       const fiber = getNutrient(nutriments, 'fiber_100g');
       
-      const displayName = originalProductName || "Unknown Product"; // Use the original case for display
+      const displayName = originalProductName || "Unknown Product";
 
-      results.push({
+      let sortPriority: number;
+      if (lowerProductName === lowerFoodNameQuery) {
+        sortPriority = 0; // Exact match
+      } else if (lowerProductName.startsWith(lowerFoodNameQuery)) {
+        sortPriority = 1; // Starts with query
+      } else {
+        sortPriority = 2; // Contains query
+      }
+
+      tempResults.push({
         id: p.code.toString(),
         displayName: displayName,
         nutritionData: {
@@ -135,17 +146,32 @@ export async function searchFoodProducts(
           sugar,
           protein,
           fiber,
-          sourceName: displayName, // Use the original case for sourceName as well
+          sourceName: displayName,
         },
+        _sortPriority: sortPriority,
+        _apiPopularityIndex: index, 
       });
+    });
+
+    tempResults.sort((a, b) => {
+        if (a._sortPriority !== b._sortPriority) {
+            return a._sortPriority - b._sortPriority;
+        }
+        return a._apiPopularityIndex - b._apiPopularityIndex; // Tie-break with original API order
+    });
+    
+    const finalResults: ProductSearchResultItem[] = tempResults.map(item => ({
+        id: item.id,
+        displayName: item.displayName,
+        nutritionData: item.nutritionData,
+    }));
+
+
+    if (finalResults.length === 0) {
+        return { products: [], error: `No products found where the name contains "${input.foodName}" after filtering.` };
     }
 
-    if (results.length === 0) {
-        // This means products were returned by API, but none matched the name filter
-        return { products: [], error: `No products found where the name contains "${input.foodName}".` };
-    }
-
-    return { products: results };
+    return { products: finalResults };
 
   } catch (error: unknown) {
     console.error('Full error in searchFoodProducts flow:', error); 
