@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Search, Loader2, Info, ListChecks, Utensils } from "lucide-react";
+import { PlusCircle, Search, Loader2, Info, ListChecks, Utensils, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "./AppContext";
 import { searchFoodProducts, type SearchFoodProductsOutput } from "@/ai/flows/get-food-nutrition-flow";
@@ -27,39 +27,60 @@ export function LogIntakeForm() {
   const [searchResults, setSearchResults] = useState<ProductSearchResultItem[] | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProductSearchResultItem | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [searchCache, setSearchCache] = useState<Record<string, ProductSearchResultItem[]>>({});
+  const [lastSearchedQuery, setLastSearchedQuery] = useState<string>("");
 
-  const handleSearchFood = async () => {
-    if (!foodNameQuery.trim()) {
+
+  const handleSearchFood = useCallback(async (forceRefresh = false) => {
+    const query = foodNameQuery.trim().toLowerCase();
+    if (!query) {
       toast({ title: "Missing Food Name", description: "Please enter a food item to search.", variant: "destructive" });
       return;
     }
-    setIsSearching(true);
-    setSearchResults(null);
-    setSelectedProduct(null);
+
     setApiError(null);
+    setSelectedProduct(null); // Clear previous selection
+    setSearchResults(null); // Clear previous results visually
+    setLastSearchedQuery(foodNameQuery.trim());
+
+
+    if (!forceRefresh && searchCache[query]) {
+      setSearchResults(searchCache[query]);
+      if (searchCache[query].length === 0) {
+        setApiError(`No products found for "${foodNameQuery.trim()}" in cache. Try a new search.`);
+      }
+      return;
+    }
+
+    setIsSearching(true);
     try {
-      const result: SearchFoodProductsOutput = await searchFoodProducts({ foodName: foodNameQuery });
+      const result: SearchFoodProductsOutput = await searchFoodProducts({ foodName: foodNameQuery.trim() });
       if (result.error) {
         setApiError(result.error);
-        // No toast here, error will be shown in Alert
+        setSearchResults([]); // Ensure searchResults is an empty array on error
+        setSearchCache(prevCache => ({ ...prevCache, [query]: [] }));
       } else if (result.products && result.products.length > 0) {
         setSearchResults(result.products);
+        setSearchCache(prevCache => ({ ...prevCache, [query]: result.products }));
       } else {
-        setApiError(`No products found where the name contains "${foodNameQuery}".`);
+        setApiError(`No products found containing "${foodNameQuery.trim()}".`);
+        setSearchResults([]);
+        setSearchCache(prevCache => ({ ...prevCache, [query]: [] }));
       }
     } catch (error) {
       console.error("Error calling searchFoodProducts:", error);
       const errorMessage = error instanceof Error ? error.message : "An error occurred while searching for food data.";
-      setApiError(errorMessage);
+      setApiError(`Search failed: ${errorMessage}`);
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [foodNameQuery, searchCache, toast]);
 
   const handleSelectProduct = (product: ProductSearchResultItem) => {
     setSelectedProduct(product);
-    setSearchResults(null); // Hide search results after selection
-    setApiError(null); // Clear any previous API errors
+    // setSearchResults(null); // Keep results visible in case user wants to change selection
+    setApiError(null); 
   };
 
   const handleLogFoodItem = () => {
@@ -78,7 +99,7 @@ export function LogIntakeForm() {
       return;
     }
 
-    const scaleFactor = numQuantity / 100; // API data is per 100g
+    const scaleFactor = numQuantity / 100; 
     const nutritionData = selectedProduct.nutritionData;
 
     const entryToLog: Omit<LoggedEntry, 'id'> = {
@@ -104,13 +125,21 @@ export function LogIntakeForm() {
       className: "bg-accent text-accent-foreground",
     });
 
-    // Reset form fields
-    setFoodNameQuery("");
+    // Reset some fields, but keep search query and results for quick re-logging or adjustments
+    // setFoodNameQuery(""); // Keep this to allow easy modification of quantity or meal type for same search
     setQuantity("100");
-    setSelectedMealType(MEAL_TYPES[0]);
+    // setSelectedMealType(MEAL_TYPES[0]); // User might log multiple items for same meal type
+    // setSearchResults(null); // Keep results for now
+    setSelectedProduct(null); // Clear selected product after logging
+    // setApiError(null);
+  };
+  
+  const clearSearch = () => {
+    setFoodNameQuery("");
     setSearchResults(null);
     setSelectedProduct(null);
     setApiError(null);
+    setLastSearchedQuery("");
   };
 
   const displayValue = (value: number | null, scaleFactor: number, unit: string = "g") => {
@@ -128,7 +157,64 @@ export function LogIntakeForm() {
         <CardDescription>Search, select, specify meal type and quantity, then log nutritional information.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {selectedProduct ? (
+        {/* Always show search input unless a product is selected */}
+        {!selectedProduct && (
+          <div className="space-y-2">
+            <Label htmlFor="food-name-query">Food Item Search</Label>
+            <div className="flex space-x-2">
+              <Input
+                id="food-name-query"
+                type="text"
+                placeholder="e.g., Apple, Chicken Breast"
+                value={foodNameQuery}
+                onChange={(e) => setFoodNameQuery(e.target.value)}
+                disabled={isSearching}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchFood(); }}}
+              />
+              <Button onClick={() => handleSearchFood()} disabled={isSearching || !foodNameQuery.trim()} size="icon" aria-label="Search Food">
+                {isSearching ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+              </Button>
+            </div>
+             { (searchResults || apiError) &&
+                <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80" onClick={clearSearch}>
+                    Clear search & results
+                </Button>
+             }
+          </div>
+        )}
+
+        {apiError && !selectedProduct && (
+           <Alert variant="destructive">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Search Information</AlertTitle>
+              <AlertDescription>
+                {apiError}
+                {lastSearchedQuery && <Button variant="link" size="sm" className="p-0 h-auto text-xs ml-1" onClick={() => handleSearchFood(true)}>Try searching again?</Button>}
+              </AlertDescription>
+          </Alert>
+        )}
+        
+        {searchResults && searchResults.length > 0 && !selectedProduct && (
+          <div className="space-y-2">
+            <h4 className="font-semibold text-md flex items-center"><ListChecks className="mr-2 h-5 w-5 text-primary"/> Select from "{lastSearchedQuery}":</h4>
+            <ScrollArea className="h-60 w-full rounded-md border p-2 bg-muted/30">
+              <div className="space-y-1">
+                {searchResults.map((item) => (
+                  <Button
+                    key={item.id}
+                    variant="ghost"
+                    className="w-full justify-start text-left h-auto py-2 text-sm"
+                    onClick={() => handleSelectProduct(item)}
+                  >
+                    {item.displayName}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+        
+        {selectedProduct && (
           <>
             <div className="space-y-2">
               <Label htmlFor="quantity">Quantity (g) for <span className="font-semibold text-primary">{selectedProduct.displayName}</span></Label>
@@ -156,68 +242,23 @@ export function LogIntakeForm() {
               </Select>
             </div>
 
-            <div className="mt-6 p-4 border rounded-md bg-secondary/30 space-y-1"> {/* Adjusted from space-y-2 to space-y-1 */}
-              <h4 className="font-semibold text-lg mb-2 flex items-center">
+            <div className="mt-4 p-3 border rounded-md bg-secondary/30 space-y-0.5 text-sm">
+              <h4 className="font-semibold text-md mb-1.5 flex items-center">
                 <Utensils className="mr-2 h-5 w-5 text-primary"/>
                 Nutrition for {selectedProduct.displayName} ({quantity}g):
               </h4>
               <NutrientDisplay label="Calories" value={displayValue(selectedProduct.nutritionData.calories, currentScaleFactor, "kcal")} />
               <NutrientDisplay label="Protein" value={displayValue(selectedProduct.nutritionData.protein, currentScaleFactor, "g")} />
               <NutrientDisplay label="Fat (Total)" value={displayValue(selectedProduct.nutritionData.fat, currentScaleFactor, "g")} />
-              <NutrientDisplay label="  Healthy Fats" value={displayValue(selectedProduct.nutritionData.healthyFats, currentScaleFactor, "g")} note="Mono + Polyunsaturated" />
-              <NutrientDisplay label="  Unhealthy Fats" value={displayValue(selectedProduct.nutritionData.unhealthyFats, currentScaleFactor, "g")} note="Saturated + Trans" />
+              <NutrientDisplay label="  Healthy Fats" value={displayValue(selectedProduct.nutritionData.healthyFats, currentScaleFactor, "g")} note="Mono + Poly" />
+              <NutrientDisplay label="  Unhealthy Fats" value={displayValue(selectedProduct.nutritionData.unhealthyFats, currentScaleFactor, "g")} note="Sat + Trans" />
               <NutrientDisplay label="Carbohydrates" value={displayValue(selectedProduct.nutritionData.carbs, currentScaleFactor, "g")} />
               <NutrientDisplay label="  Sugars" value={displayValue(selectedProduct.nutritionData.sugar, currentScaleFactor, "g")} />
               <NutrientDisplay label="Fiber" value={displayValue(selectedProduct.nutritionData.fiber, currentScaleFactor, "g")} />
-              <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80 mt-2" onClick={() => {setSelectedProduct(null); setApiError(null); setFoodNameQuery(""); setSearchResults(null); }}>
-                Search for another item or change selection
+              <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80 mt-2" onClick={() => {setSelectedProduct(null); /* keep searchResults if user wants to pick another item from same search */ }}>
+                Change selection or search again
               </Button>
             </div>
-          </>
-        ) : searchResults && searchResults.length > 0 ? (
-          <div className="space-y-2">
-            <h4 className="font-semibold text-md flex items-center"><ListChecks className="mr-2 h-5 w-5 text-primary"/> Select a food item:</h4>
-            <ScrollArea className="h-60 w-full rounded-md border p-2 bg-muted/30">
-              <div className="space-y-1">
-                {searchResults.map((item) => (
-                  <Button
-                    key={item.id}
-                    variant="ghost"
-                    className="w-full justify-start text-left h-auto py-2"
-                    onClick={() => handleSelectProduct(item)}
-                  >
-                    {item.displayName}
-                  </Button>
-                ))}
-              </div>
-            </ScrollArea>
-             <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80" onClick={() => {setSearchResults(null); setFoodNameQuery(foodNameQuery); /* Keep query for re-search if needed */ }}>
-                Back to search input
-              </Button>
-          </div>
-        ) : apiError ? (
-           <Alert variant="destructive">
-              <Info className="h-4 w-4" />
-              <AlertTitle>Search Information</AlertTitle>
-              <AlertDescription>{apiError}</AlertDescription>
-          </Alert>
-        ) : (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="food-name-query">Food Item Search</Label>
-              <Input
-                id="food-name-query"
-                type="text"
-                placeholder="e.g., Apple, Chicken Breast"
-                value={foodNameQuery}
-                onChange={(e) => setFoodNameQuery(e.target.value)}
-                disabled={isSearching}
-              />
-            </div>
-            <Button onClick={handleSearchFood} disabled={isSearching || !foodNameQuery.trim()} className="w-full">
-              {isSearching ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Search className="mr-2 h-5 w-5" />}
-              Search Food
-            </Button>
           </>
         )}
       </CardContent>
@@ -242,9 +283,9 @@ interface NutrientDisplayProps {
 
 function NutrientDisplay({ label, value, note }: NutrientDisplayProps) {
   return (
-    <div className="flex justify-between items-center text-sm py-0.5"> {/* Added py-0.5 for a little vertical padding */}
-      <span className="text-muted-foreground">{label}{note && <span className="text-xs block"> ({note})</span>}</span>
-      <span className="font-medium">{value}</span>
+    <div className="flex justify-between items-baseline text-xs py-0.5">
+      <span className="text-muted-foreground">{label}{note && <span className="text-xs"> ({note})</span>}</span>
+      <span className="font-medium text-right">{value}</span>
     </div>
   );
 }
