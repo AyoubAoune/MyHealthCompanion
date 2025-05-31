@@ -66,7 +66,7 @@ export function RewardsCard() {
       </CardHeader>
       <CardContent>
         {PRIZES && PRIZES.length > 0 ? (
-          <ScrollArea className="max-h-80 pr-3">
+          <ScrollArea className="pr-3"> {/* Removed max-h-80 */}
             <div className="space-y-4">
               {PRIZES.map((prize) => {
                 const PrizeIcon = prize.icon || Gift; 
