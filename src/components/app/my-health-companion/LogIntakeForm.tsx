@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Search, Loader2, Info, ListChecks, Utensils, RefreshCw } from "lucide-react";
+import { PlusCircle, Search, Loader2, Info, ListChecks, Utensils, RefreshCw, Timer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "./AppContext";
 import { searchFoodProducts, type SearchFoodProductsOutput } from "@/ai/flows/get-food-nutrition-flow";
@@ -15,6 +15,12 @@ import type { LoggedEntry, ProductSearchResultItem, MealType } from "./types";
 import { MEAL_TYPES } from "./types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface ApiTimingInfo {
+  fetchMs?: number;
+  parseMs?: number;
+  processingMs?: number;
+}
 
 export function LogIntakeForm() {
   const { logIntake } = useAppContext();
@@ -29,6 +35,7 @@ export function LogIntakeForm() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [searchCache, setSearchCache] = useState<Record<string, ProductSearchResultItem[]>>({});
   const [lastSearchedQuery, setLastSearchedQuery] = useState<string>("");
+  const [apiTimingInfo, setApiTimingInfo] = useState<ApiTimingInfo | null>(null);
 
 
   const handleSearchFood = useCallback(async (forceRefresh = false) => {
@@ -39,9 +46,10 @@ export function LogIntakeForm() {
     }
 
     setApiError(null);
-    setSelectedProduct(null); // Clear previous selection
-    setSearchResults(null); // Clear previous results visually
+    setSelectedProduct(null); 
+    setSearchResults(null); 
     setLastSearchedQuery(foodNameQuery.trim());
+    setApiTimingInfo(null); // Reset timing info for new search
 
 
     if (!forceRefresh && searchCache[query]) {
@@ -49,15 +57,25 @@ export function LogIntakeForm() {
       if (searchCache[query].length === 0) {
         setApiError(`No products found for "${foodNameQuery.trim()}" in cache. Try a new search.`);
       }
+      // No timing info to display for cached results
       return;
     }
 
     setIsSearching(true);
     try {
       const result: SearchFoodProductsOutput = await searchFoodProducts({ foodName: foodNameQuery.trim() });
+      
+      if (result.apiFetchDurationMs !== undefined || result.jsonParseDurationMs !== undefined || result.processingDurationMs !== undefined) {
+        setApiTimingInfo({ 
+          fetchMs: result.apiFetchDurationMs, 
+          parseMs: result.jsonParseDurationMs,
+          processingMs: result.processingDurationMs 
+        });
+      }
+
       if (result.error) {
         setApiError(result.error);
-        setSearchResults([]); // Ensure searchResults is an empty array on error
+        setSearchResults([]); 
         setSearchCache(prevCache => ({ ...prevCache, [query]: [] }));
       } else if (result.products && result.products.length > 0) {
         setSearchResults(result.products);
@@ -79,7 +97,6 @@ export function LogIntakeForm() {
 
   const handleSelectProduct = (product: ProductSearchResultItem) => {
     setSelectedProduct(product);
-    // setSearchResults(null); // Keep results visible in case user wants to change selection
     setApiError(null); 
   };
 
@@ -125,13 +142,8 @@ export function LogIntakeForm() {
       className: "bg-accent text-accent-foreground",
     });
 
-    // Reset some fields, but keep search query and results for quick re-logging or adjustments
-    // setFoodNameQuery(""); // Keep this to allow easy modification of quantity or meal type for same search
     setQuantity("100");
-    // setSelectedMealType(MEAL_TYPES[0]); // User might log multiple items for same meal type
-    // setSearchResults(null); // Keep results for now
-    setSelectedProduct(null); // Clear selected product after logging
-    // setApiError(null);
+    setSelectedProduct(null); 
   };
   
   const clearSearch = () => {
@@ -140,6 +152,7 @@ export function LogIntakeForm() {
     setSelectedProduct(null);
     setApiError(null);
     setLastSearchedQuery("");
+    setApiTimingInfo(null); // Clear timing info
   };
 
   const displayValue = (value: number | null, scaleFactor: number, unit: string = "g") => {
@@ -157,7 +170,6 @@ export function LogIntakeForm() {
         <CardDescription>Search, select, specify meal type and quantity, then log nutritional information.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Always show search input unless a product is selected */}
         {!selectedProduct && (
           <div className="space-y-2">
             <Label htmlFor="food-name-query">Food Item Search</Label>
@@ -175,11 +187,22 @@ export function LogIntakeForm() {
                 {isSearching ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
               </Button>
             </div>
-             { (searchResults || apiError) &&
+             { (searchResults || apiError || apiTimingInfo) &&
                 <Button variant="link" size="sm" className="p-0 h-auto text-xs text-primary hover:text-primary/80" onClick={clearSearch}>
-                    Clear search & results
+                    Clear search, results & timings
                 </Button>
              }
+          </div>
+        )}
+
+        {apiTimingInfo && !selectedProduct && (
+          <div className="text-xs text-muted-foreground p-2 border rounded-md bg-muted/20 flex items-center space-x-2">
+            <Timer className="h-4 w-4 text-primary" />
+            <div>
+              {apiTimingInfo.fetchMs !== undefined && <span>API Fetch: <b>{apiTimingInfo.fetchMs}ms</b></span>}
+              {apiTimingInfo.parseMs !== undefined && <span className="ml-2">JSON Parse: <b>{apiTimingInfo.parseMs}ms</b></span>}
+              {apiTimingInfo.processingMs !== undefined && <span className="ml-2">Processing: <b>{apiTimingInfo.processingMs}ms</b></span>}
+            </div>
           </div>
         )}
 

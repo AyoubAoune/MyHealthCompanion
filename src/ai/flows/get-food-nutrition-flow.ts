@@ -7,7 +7,7 @@
  *
  * - searchFoodProducts - Fetches a list of food products.
  * - SearchFoodProductsInput - Input type for searchFoodProducts.
- * - SearchFoodProductsOutput - Output type for searchFoodProducts, containing a list of products or an error.
+ * - SearchFoodProductsOutput - Output type for searchFoodProducts, containing a list of products or an error, and API timing info.
  */
 
 import { z } from 'zod';
@@ -41,6 +41,9 @@ const ProductSearchResultItemSchema = z.object({
 const SearchFoodProductsOutputSchema = z.object({
   products: z.array(ProductSearchResultItemSchema).describe("A list of found food products with their nutritional information, sorted by relevance."),
   error: z.string().optional().describe("An error message if the search failed or no products were found."),
+  apiFetchDurationMs: z.number().optional().describe("Time taken for the API fetch call in milliseconds."),
+  jsonParseDurationMs: z.number().optional().describe("Time taken for JSON parsing of the API response in milliseconds."),
+  processingDurationMs: z.number().optional().describe("Time taken for internal filtering and sorting of products in milliseconds."),
 });
 export type SearchFoodProductsOutput = z.infer<typeof SearchFoodProductsOutputSchema>;
 
@@ -64,7 +67,9 @@ const EXCLUDED_BRAND_KEYWORDS: string[] = [
   "mcdonald's", "subway", "burger king", "kfc", "starbucks", 
   "domino's", "pizza hut", "taco bell", "wendy's", "dunkin", 
   "costco", "nestle", "unilever", "pepsi", "coca-cola", "kraft",
-  "general mills", "kellogg's", "monster energy", "red bull"
+  "general mills", "kellogg's", "monster energy", "red bull", "carl's jr",
+  "dairy queen", "tim hortons", "popeyes", "chipotle", "panda express",
+  "heinz", "mars", "mondelez", "danone", "ferrero", "dr pepper snapple"
 ];
 
 export async function searchFoodProducts(
@@ -81,6 +86,10 @@ export async function searchFoodProducts(
   
   const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodedSearchTerm}&search_simple=1&action=process&json=1&page_size=50&sort_by=popularity_key&fields=${fieldsToFetch}`;
 
+  let apiFetchDurationMs: number | undefined;
+  let jsonParseDurationMs: number | undefined;
+  let processingDurationMs: number | undefined;
+
   try {
     const startTime = Date.now();
     console.log(`[searchFoodProducts] Fetching URL: ${url}`);
@@ -93,24 +102,26 @@ export async function searchFoodProducts(
     });
 
     const fetchEndTime = Date.now();
-    const fetchDuration = fetchEndTime - startTime;
-    console.log(`[searchFoodProducts] API fetch took ${fetchDuration} ms. Status: ${response.status}`);
+    apiFetchDurationMs = fetchEndTime - startTime;
+    console.log(`[searchFoodProducts] API fetch took ${apiFetchDurationMs} ms. Status: ${response.status}`);
 
     if (!response.ok) {
       console.error('Open Food Facts API request failed:', response.status, response.statusText);
       const responseText = await response.text().catch(() => "Could not retrieve error body");
-      return { products: [], error: `API Error: ${response.status} ${response.statusText}. Body: ${responseText.substring(0, 200)}` };
+      return { products: [], error: `API Error: ${response.status} ${response.statusText}. Body: ${responseText.substring(0, 200)}`, apiFetchDurationMs };
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    const jsonParseStartTime = Date.now();
+    const data = JSON.parse(responseText);
     const jsonParseEndTime = Date.now();
-    const jsonParseDuration = jsonParseEndTime - fetchEndTime;
-    console.log(`[searchFoodProducts] JSON parsing took ${jsonParseDuration} ms.`);
-    console.log(`[searchFoodProducts] Total API + JSON parsing time: ${fetchDuration + jsonParseDuration} ms.`);
+    jsonParseDurationMs = jsonParseEndTime - jsonParseStartTime;
+    console.log(`[searchFoodProducts] JSON parsing took ${jsonParseDurationMs} ms.`);
+    console.log(`[searchFoodProducts] Total API + JSON parsing time: ${apiFetchDurationMs + jsonParseDurationMs} ms.`);
 
 
     if (!data.products || !Array.isArray(data.products) || data.products.length === 0) {
-      return { products: [], error: `No products found for "${input.foodName}" from the API.` };
+      return { products: [], error: `No products found for "${input.foodName}" from the API.`, apiFetchDurationMs, jsonParseDurationMs };
     }
 
     const processingStartTime = Date.now();
@@ -130,6 +141,7 @@ export async function searchFoodProducts(
       const originalProductName = p.product_name || p.product_name_en || p.generic_name || "";
       const lowerProductName = originalProductName.toLowerCase();
       
+      // Modified: Ensure product name includes the query. This was already good.
       if (!originalProductName || !lowerProductName.includes(lowerFoodNameQuery)) {
         return; 
       }
@@ -216,13 +228,14 @@ export async function searchFoodProducts(
 
 
     const processingEndTime = Date.now();
-    console.log(`[searchFoodProducts] Data processing (filtering, sorting) took ${processingEndTime - processingStartTime} ms.`);
+    processingDurationMs = processingEndTime - processingStartTime;
+    console.log(`[searchFoodProducts] Data processing (filtering, sorting) took ${processingDurationMs} ms.`);
 
     if (finalResults.length === 0) {
-        return { products: [], error: `No products matching your criteria were found for "${input.foodName}" after filtering.` };
+        return { products: [], error: `No products matching your criteria were found for "${input.foodName}" after filtering.`, apiFetchDurationMs, jsonParseDurationMs, processingDurationMs };
     }
 
-    return { products: finalResults };
+    return { products: finalResults, apiFetchDurationMs, jsonParseDurationMs, processingDurationMs };
 
   } catch (error: unknown) {
     console.error('Full error in searchFoodProducts flow:', error); 
@@ -235,7 +248,7 @@ export async function searchFoodProducts(
         causeMessage += ` Specific cause: ${String(error.cause)}.`;
       }
       causeMessage += " If you are running in a simulator, virtual machine, or restricted network environment, please check its network access capabilities for external APIs like world.openfoodfacts.org.";
-      return { products: [], error: causeMessage };
+      return { products: [], error: causeMessage, apiFetchDurationMs, jsonParseDurationMs };
     }
 
     let detail = 'An unexpected error occurred while processing food data.';
@@ -247,7 +260,6 @@ export async function searchFoodProducts(
     } else if (typeof error === 'string') {
       detail = error;
     }
-    return { products: [], error: `Flow Error: ${detail}` };
+    return { products: [], error: `Flow Error: ${detail}`, apiFetchDurationMs, jsonParseDurationMs };
   }
 }
-
