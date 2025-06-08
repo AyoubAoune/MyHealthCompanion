@@ -42,8 +42,8 @@ export default function StatsPage() {
            <AvatarFallback>{userSettings.name.substring(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-primary">Your Statistics</h1>
-          <p className="text-md md:text-lg text-muted-foreground">Review your progress and trends.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">Your Trends</h1>
+          <p className="text-md md:text-lg text-muted-foreground">Review your progress and observe trends over time.</p>
         </div>
       </header>
       

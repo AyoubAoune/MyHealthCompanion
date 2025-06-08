@@ -3,15 +3,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ClipboardPlus, Lightbulb, LineChart, Settings } from 'lucide-react'; // Added Settings icon
+import { LayoutDashboard, ClipboardPlus, Lightbulb, TrendingUp, Settings } from 'lucide-react'; // Changed LineChart to TrendingUp for better fit
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/log', label: 'Log Food', icon: ClipboardPlus },
   { href: '/ideas', label: 'Meal Ideas', icon: Lightbulb },
-  { href: '/stats', label: 'Statistics', icon: LineChart },
-  { href: '/settings', label: 'Settings', icon: Settings }, // Added Settings item
+  { href: '/stats', label: 'Trends', icon: TrendingUp }, // Changed label and icon
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function BottomNavigationBar() {
