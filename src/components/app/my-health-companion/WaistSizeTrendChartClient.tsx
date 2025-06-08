@@ -15,7 +15,7 @@ interface WaistSizeTrendChartClientProps {
 const chartConfig = {
   waistSize: {
     label: "Waist (cm)",
-    color: "hsl(var(--chart-2))", // Using chart-2 color
+    color: "hsl(var(--chart-2))", 
   },
 } satisfies ChartConfig;
 
@@ -25,28 +25,39 @@ export function WaistSizeTrendChartClient({ bodyMeasurementLogs }: WaistSizeTren
     const processedData = bodyMeasurementLogs
       .filter(log => log.waistSizeCm !== null && log.waistSizeCm !== undefined && typeof log.waistSizeCm === 'number' && isFinite(log.waistSizeCm))
       .map(log => ({
-        date: log.date, // This is 'yyyy-MM-dd' string
-        waistSizeCm: log.waistSizeCm as number, // Already filtered for number
+        date: log.date, 
+        waistSizeCm: log.waistSizeCm as number, 
       }))
       .filter(log => {
         let dateObj;
         try {
             dateObj = parseDate(log.date);
         } catch (e) {
-            // console.warn(`[WaistSizeTrendChartClient] Invalid date string encountered during parseDate: ${log.date}`, e);
             return false;
         }
         const dateValid = dateObj && !isNaN(dateObj.getTime());
-        if (!dateValid) {
-            // console.warn(`[WaistSizeTrendChartClient] Filtered out log due to invalid date object for: ${log.date}`);
-        }
         return dateValid;
       })
       .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
-      
-    // console.log("[WaistSizeTrendChartClient] Computed chartData:", JSON.stringify(processedData));
     return processedData;
   }, [bodyMeasurementLogs]);
+
+  const yAxisDomain = React.useMemo(() => {
+    if (chartData.length < 1) return ['auto', 'auto'];
+
+    const values = chartData.map(d => d.waistSizeCm);
+    let dataMinVal = Math.min(...values);
+    let dataMaxVal = Math.max(...values);
+
+    if (dataMinVal === dataMaxVal) {
+      return [dataMinVal - 2, dataMaxVal + 2]; // Buffer for single value (e.g. 2cm)
+    }
+
+    const range = dataMaxVal - dataMinVal;
+    const buffer = Math.max(range * 0.1, 2); // Ensure buffer is at least 2cm
+
+    return [Math.floor(dataMinVal - buffer), Math.ceil(dataMaxVal + buffer)];
+  }, [chartData]);
 
   if (chartData.length < 2) {
     return (
@@ -83,7 +94,6 @@ export function WaistSizeTrendChartClient({ bodyMeasurementLogs }: WaistSizeTren
             try {
               return format(parseDate(value), "MMM d");
             } catch (e) {
-              // console.warn(`[WaistSizeTrendChartClient] Error formatting date for XAxis tick: ${value}`, e);
               return value; 
             }
           }}
@@ -95,6 +105,8 @@ export function WaistSizeTrendChartClient({ bodyMeasurementLogs }: WaistSizeTren
           axisLine={false}
           tickMargin={8}
           tickFormatter={(value) => `${value} cm`}
+          domain={yAxisDomain as [number, number]}
+          allowDataOverflow={false}
         />
         <ChartTooltip
           cursor={false}

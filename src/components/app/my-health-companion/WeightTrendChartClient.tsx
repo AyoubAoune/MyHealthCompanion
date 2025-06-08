@@ -24,37 +24,43 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
     if (!weightLogs || weightLogs.length === 0) return [];
     const processedData = weightLogs
       .map(log => ({
-        date: log.date, // This is 'yyyy-MM-dd' string
-        // Ensure weight is a number, parsing if it's a string
+        date: log.date, 
         weight: typeof log.weight === 'string' ? parseFloat(log.weight) : log.weight, 
       }))
       .filter(log => {
         let dateObj;
         try {
-            // Ensure parseDate is robust or handle its potential errors
             dateObj = parseDate(log.date);
         } catch (e) {
-            // console.warn(`[WeightTrendChartClient] Invalid date string encountered during parseDate: ${log.date}`, e);
             return false;
         }
-        // Check if date parsing was successful and it's a valid date
         const dateValid = dateObj && !isNaN(dateObj.getTime());
-        // Check if weight is a valid, finite number
         const weightValid = typeof log.weight === 'number' && !isNaN(log.weight) && isFinite(log.weight);
-        
-        if (!dateValid) {
-            // console.warn(`[WeightTrendChartClient] Filtered out log due to invalid date object for: ${log.date}`);
-        }
-        if (!weightValid) {
-            // console.warn(`[WeightTrendChartClient] Filtered out log due to invalid weight: ${JSON.stringify(log)}`);
-        }
         return dateValid && weightValid;
       })
       .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
-      
-    // console.log("[WeightTrendChartClient] Computed chartData:", JSON.stringify(processedData));
     return processedData;
   }, [weightLogs]);
+
+  const yAxisDomain = React.useMemo(() => {
+    if (chartData.length < 1) return ['auto', 'auto']; // Should be caught by the <2 check later, but for safety
+
+    const values = chartData.map(d => d.weight as number);
+    let dataMinVal = Math.min(...values);
+    let dataMaxVal = Math.max(...values);
+
+    if (dataMinVal === dataMaxVal) {
+      // If all values are the same, add a small buffer
+      return [dataMinVal - 1, dataMaxVal + 1];
+    }
+
+    // Calculate a buffer (e.g., 10% of range, or at least 2 units)
+    const range = dataMaxVal - dataMinVal;
+    const buffer = Math.max(range * 0.1, 2); // Ensure buffer is at least 2 kg
+
+    return [Math.floor(dataMinVal - buffer), Math.ceil(dataMaxVal + buffer)];
+  }, [chartData]);
+
 
   if (chartData.length < 2) {
     return (
@@ -77,7 +83,7 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
         margin={{
           top: 5,
           right: 20,
-          left: -10, // Adjusted to prevent Y-axis labels from being cut off
+          left: -10, 
           bottom: 5,
         }}
       >
@@ -91,8 +97,7 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
             try {
               return format(parseDate(value), "MMM d");
             } catch (e) {
-              // console.warn(`[WeightTrendChartClient] Error formatting date for XAxis tick: ${value}`, e);
-              return value; // Fallback to raw value
+              return value; 
             }
           }}
           allowDuplicatedCategory={false}
@@ -103,7 +108,8 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
           axisLine={false}
           tickMargin={8}
           tickFormatter={(value) => `${value} kg`}
-          // domain={['dataMin - 2', 'dataMax + 2']} // Keeping domain auto for now
+          domain={yAxisDomain as [number, number]}
+          allowDataOverflow={false}
         />
         <ChartTooltip
           cursor={false}
@@ -127,3 +133,4 @@ export function WeightTrendChartClient({ weightLogs }: WeightTrendChartClientPro
     </ChartContainer>
   );
 }
+
