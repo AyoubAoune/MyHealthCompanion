@@ -3,6 +3,7 @@
 
 import { LogIntakeForm } from "@/components/app/my-health-companion/LogIntakeForm";
 import { MealLogSummaryCard } from "@/components/app/my-health-companion/MealLogSummaryCard";
+import { QuickCalorieEntryCard } from "@/components/app/my-health-companion/QuickCalorieEntryCard"; // New import
 import { useAppContext } from "@/components/app/my-health-companion/AppContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,9 +25,12 @@ export default function LogPage() {
             </div>
           </div>
         </header>
-        <div className="flex flex-col md:flex-row gap-8 max-w-4xl mx-auto"> {/* Adjusted max-width */}
-          <Skeleton className="h-96 w-full md:flex-1 rounded-lg mb-6 md:mb-0" />
-          <Skeleton className="h-80 w-full md:flex-1 rounded-lg" />
+        <div className="flex flex-col md:flex-row gap-8 max-w-4xl mx-auto">
+          <Skeleton className="h-96 w-full md:flex-1 rounded-lg mb-6 md:mb-0" /> {/* LogIntakeForm Skeleton */}
+          <div className="md:flex-1 w-full space-y-8">
+            <Skeleton className="h-48 w-full rounded-lg" /> {/* QuickCalorieEntryCard Skeleton */}
+            <Skeleton className="h-80 w-full rounded-lg" /> {/* MealLogSummaryCard Skeleton */}
+          </div>
         </div>
       </div>
     );
@@ -44,12 +48,13 @@ export default function LogPage() {
           <p className="text-md md:text-lg text-muted-foreground">Keep track of your daily nutrition.</p>
         </div>
       </header>
-      <div className="max-w-4xl mx-auto"> {/* Adjusted max-width from max-w-5xl */}
+      <div className="max-w-4xl mx-auto">
         <div className="flex flex-col md:flex-row md:gap-8 space-y-8 md:space-y-0">
           <div className="md:flex-1 w-full">
             <LogIntakeForm />
           </div>
-          <div className="md:flex-1 w-full">
+          <div className="md:flex-1 w-full space-y-8">
+            <QuickCalorieEntryCard />
             <MealLogSummaryCard />
           </div>
         </div>

@@ -18,11 +18,12 @@ interface AppContextType {
   isLoading: boolean;
   updateUserSettings: (newSettingsOrUpdater: Partial<UserSettings> | ((prevSettings: UserSettings) => Partial<UserSettings>)) => void;
   logIntake: (entryData: Omit<LoggedEntry, 'id'>) => void;
+  logQuickCalories: (calories: number) => void; // New function for quick calorie logging
   logWeight: (weight: number) => void;
   logWaistSize: (waistCm: number) => void;
   toggleChecklistItem: (itemId: string) => void;
   claimReward: (prizeCost: number) => boolean;
-  resetAllData: () => void; // New function for resetting data
+  resetAllData: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -87,52 +88,98 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [setUserSettings]);
 
+  const updateDailyLogTotals = (log: DailyLog): DailyLog => {
+    const updatedLog = { ...log };
+    updatedLog.totalCalories = 0;
+    updatedLog.totalProtein = 0;
+    updatedLog.totalFiber = 0;
+    updatedLog.totalFat = 0;
+    updatedLog.totalHealthyFats = 0;
+    updatedLog.totalUnhealthyFats = 0;
+    updatedLog.totalCarbs = 0;
+    updatedLog.totalSugar = 0;
+
+    for (const entry of updatedLog.entries) {
+      updatedLog.totalCalories += entry.calories || 0;
+      updatedLog.totalProtein += entry.protein || 0;
+      updatedLog.totalFiber += entry.fiber || 0;
+      updatedLog.totalFat += entry.fat || 0;
+      updatedLog.totalHealthyFats += entry.healthyFats || 0;
+      updatedLog.totalUnhealthyFats += entry.unhealthyFats || 0;
+      updatedLog.totalCarbs += entry.carbs || 0;
+      updatedLog.totalSugar += entry.sugar || 0;
+    }
+    return updatedLog;
+  };
+
   const logIntake = useCallback((entryData: Omit<LoggedEntry, 'id'>) => {
     const currentTodayStr = getCurrentDateFormatted();
     setDailyLogs(prevLogs => {
       const existingLogIndex = prevLogs.findIndex(log => log.date === currentTodayStr);
-      let updatedLog: DailyLog;
+      let logToUpdate: DailyLog;
 
       if (existingLogIndex > -1) {
-        updatedLog = { ...prevLogs[existingLogIndex] };
+        logToUpdate = { ...prevLogs[existingLogIndex] };
       } else {
-        updatedLog = { date: currentTodayStr, ...DEFAULT_DAILY_LOG_BASE };
+        logToUpdate = { date: currentTodayStr, ...DEFAULT_DAILY_LOG_BASE };
       }
 
       const newEntry: LoggedEntry = {
         ...entryData,
         id: Date.now().toString() + Math.random().toString(36).substring(2, 15),
       };
-      updatedLog.entries = [...updatedLog.entries, newEntry];
-
-      updatedLog.totalCalories = 0;
-      updatedLog.totalProtein = 0;
-      updatedLog.totalFiber = 0;
-      updatedLog.totalFat = 0;
-      updatedLog.totalHealthyFats = 0;
-      updatedLog.totalUnhealthyFats = 0;
-      updatedLog.totalCarbs = 0;
-      updatedLog.totalSugar = 0;
-
-      for (const entry of updatedLog.entries) {
-        updatedLog.totalCalories += entry.calories || 0;
-        updatedLog.totalProtein += entry.protein || 0;
-        updatedLog.totalFiber += entry.fiber || 0;
-        updatedLog.totalFat += entry.fat || 0;
-        updatedLog.totalHealthyFats += entry.healthyFats || 0;
-        updatedLog.totalUnhealthyFats += entry.unhealthyFats || 0;
-        updatedLog.totalCarbs += entry.carbs || 0;
-        updatedLog.totalSugar += entry.sugar || 0;
-      }
+      logToUpdate.entries = [...logToUpdate.entries, newEntry];
+      
+      const finalUpdatedLog = updateDailyLogTotals(logToUpdate);
       
       if (existingLogIndex > -1) {
         const updatedLogs = [...prevLogs];
-        updatedLogs[existingLogIndex] = updatedLog;
+        updatedLogs[existingLogIndex] = finalUpdatedLog;
         return updatedLogs;
       }
-      return [...prevLogs, updatedLog];
+      return [...prevLogs, finalUpdatedLog];
     });
   }, [setDailyLogs]);
+
+  const logQuickCalories = useCallback((calories: number) => {
+    const currentTodayStr = getCurrentDateFormatted();
+    setDailyLogs(prevLogs => {
+      const existingLogIndex = prevLogs.findIndex(log => log.date === currentTodayStr);
+      let logToUpdate: DailyLog;
+
+      if (existingLogIndex > -1) {
+        logToUpdate = { ...prevLogs[existingLogIndex] };
+      } else {
+        logToUpdate = { date: currentTodayStr, ...DEFAULT_DAILY_LOG_BASE };
+      }
+
+      const quickEntry: LoggedEntry = {
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 9), // Shorter random part
+        foodItemName: "Quick Calorie Entry",
+        mealType: "Snack", // Default or decide if this should be selectable
+        quantity: 1, // Represents 1 entry
+        calories: calories,
+        protein: 0,
+        fiber: 0,
+        fat: 0,
+        healthyFats: 0,
+        unhealthyFats: 0,
+        carbs: 0,
+        sugar: 0,
+      };
+      logToUpdate.entries = [...logToUpdate.entries, quickEntry];
+
+      const finalUpdatedLog = updateDailyLogTotals(logToUpdate);
+
+      if (existingLogIndex > -1) {
+        const updatedLogs = [...prevLogs];
+        updatedLogs[existingLogIndex] = finalUpdatedLog;
+        return updatedLogs;
+      }
+      return [...prevLogs, finalUpdatedLog];
+    });
+  }, [setDailyLogs]);
+
 
   const logWeight = useCallback((weight: number) => {
     const currentTodayStr = getCurrentDateFormatted();
@@ -239,11 +286,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isLoading,
     updateUserSettings,
     logIntake,
+    logQuickCalories, // Expose new function
     logWeight,
     logWaistSize,
     toggleChecklistItem,
     claimReward,
-    resetAllData, // Expose new function
+    resetAllData,
   };
 
   return (
